@@ -20,7 +20,7 @@ python main.py           # 持续运行
 
 | Secret 名称 | 说明 |
 |------------|------|
-| `GITHUB_TOKEN` | GitHub Personal Access Token |
+| `TOKEN_GITHUB` | GitHub Personal Access Token |
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot Token |
 | `TELEGRAM_CHAT_ID` | Telegram 聊天 ID |
 | `TELEGRAM_CHATGROUP_ID` | Telegram 频道 ID（可选） |

@@ -39,14 +39,14 @@ jobs:
       
       - name: Create .env file
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN_GITHUB: ${{ secrets.TOKEN_GITHUB }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_CHATGROUP_ID: ${{ secrets.TELEGRAM_CHATGROUP_ID }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           cat > .env << EOF
-          GITHUB_TOKEN=${GITHUB_TOKEN}
+          TOKEN_GITHUB=${TOKEN_GITHUB}
           TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
           TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
           TELEGRAM_CHATGROUP_ID=${TELEGRAM_CHATGROUP_ID}

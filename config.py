@@ -62,9 +62,9 @@ class Config:
 
     @classmethod
     def from_env(cls) -> 'Config':
-        github_token = os.getenv('GITHUB_TOKEN', '')
+        github_token = os.getenv('TOKEN_GITHUB', '')
         if not github_token:
-            raise ValueError("GITHUB_TOKEN is required in .env file")
+            raise ValueError("TOKEN_GITHUB is required in .env file")
 
         telegram_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
         telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
