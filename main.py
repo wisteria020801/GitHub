@@ -2,12 +2,16 @@ import time
 import signal
 import sys
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+import os
 
 from config import config
 from database.models import Repository, AnalysisResult, Score, StarSnapshot, TelegramMessage
 from database.db_manager import DatabaseManager
 from collectors.github_collector import GitHubCollector
+from collectors.hn_collector import HackerNewsCollector
+from collectors.ph_collector import ProductHuntCollector
+from collectors.multi_source import MultiSourceCollector, TrendingItem
 from analyzers.readme_parser import ReadmeParser
 from analyzers.llm_analyzer import LLMAnalyzer
 from scorers.scorer import Scorer
@@ -18,13 +22,23 @@ logger = get_logger(__name__)
 
 
 class GitHubRadar:
-    def __init__(self):
+    def __init__(self, use_multi_source: bool = True):
         self.db = DatabaseManager(config.database.path)
         self.collector = GitHubCollector(config.github)
         self.readme_parser = ReadmeParser()
         self.llm_analyzer = LLMAnalyzer(config.llm)
         self.scorer = Scorer()
         self.notifier = TelegramNotifier(config.telegram)
+        
+        self.use_multi_source = use_multi_source
+        if use_multi_source:
+            ph_token = os.getenv('PRODUCTHUNT_API_TOKEN')
+            self.multi_collector = MultiSourceCollector(
+                github_config=config.github,
+                ph_api_token=ph_token
+            )
+            self.hn_collector = HackerNewsCollector()
+            self.ph_collector = ProductHuntCollector(api_token=ph_token)
         
         self.running = True
         self._setup_signal_handlers()
@@ -48,11 +62,20 @@ class GitHubRadar:
             'analyzed': 0,
             'scored': 0,
             'notified': 0,
-            'errors': 0
+            'errors': 0,
+            'sources': {
+                'github': 0,
+                'hackernews': 0,
+                'producthunt': 0
+            }
         }
         
         try:
-            stats['collected'], stats['new'] = self._collect_repositories()
+            if self.use_multi_source:
+                stats['collected'], stats['new'], stats['sources'] = self._collect_from_all_sources()
+            else:
+                stats['collected'], stats['new'] = self._collect_repositories()
+            
             self._fetch_readmes()
             stats['analyzed'] = self._analyze_repositories()
             stats['scored'] = self._score_repositories()
@@ -68,6 +91,7 @@ class GitHubRadar:
     def run_forever(self):
         logger.info("Starting GitHub Radar in continuous mode")
         logger.info(f"Scan interval: {config.system.scan_interval_minutes} minutes")
+        logger.info(f"Multi-source mode: {self.use_multi_source}")
         
         self._test_connections()
         
@@ -90,7 +114,73 @@ class GitHubRadar:
         if not self.notifier.test_connection():
             logger.warning("Telegram connection failed!")
         
+        if self.use_multi_source:
+            try:
+                hn_stories = self.hn_collector.get_top_stories(limit=1)
+                if hn_stories:
+                    logger.info("Hacker News API: OK")
+            except Exception as e:
+                logger.warning(f"Hacker News API: FAILED ({e})")
+        
         logger.info("Connection tests completed")
+
+    def _collect_from_all_sources(self) -> Tuple[int, int, dict]:
+        logger.info("Collecting from all sources...")
+        
+        total_collected = 0
+        new_count = 0
+        source_stats = {'github': 0, 'hackernews': 0, 'producthunt': 0}
+        
+        result = self.collector.search_trending_repositories(
+            days=7,
+            min_stars=50,
+            max_results=config.github.max_results
+        )
+        
+        for repo in result.repositories:
+            existing = self.db.get_repository_by_github_id(repo.github_id)
+            if existing:
+                self._save_star_snapshot(existing)
+                repo.id = existing.id
+                self.db.update_repository(repo)
+            else:
+                repo_id = self.db.insert_repository(repo)
+                if repo_id:
+                    repo.id = repo_id
+                    new_count += 1
+                    self._save_star_snapshot(repo)
+        
+        source_stats['github'] = len(result.repositories)
+        total_collected += len(result.repositories)
+        
+        external_githubs = self.multi_collector.get_github_repos_from_external()
+        
+        for repo_name, item in external_githubs.items():
+            try:
+                repo = self.multi_collector.enrich_with_github_details(repo_name, item)
+                if repo:
+                    existing = self.db.get_repository_by_github_id(repo.github_id)
+                    if existing:
+                        self._save_star_snapshot(existing)
+                        repo.id = existing.id
+                        self.db.update_repository(repo)
+                    else:
+                        repo_id = self.db.insert_repository(repo)
+                        if repo_id:
+                            repo.id = repo_id
+                            new_count += 1
+                            self._save_star_snapshot(repo)
+                    
+                    source_stats[item.source] += 1
+                    total_collected += 1
+            except Exception as e:
+                logger.warning(f"Failed to process external repo {repo_name}: {e}")
+        
+        logger.info(f"Collected {total_collected} repos ({new_count} new) from all sources")
+        logger.info(f"Source breakdown: GitHub={source_stats['github']}, "
+                   f"HN={source_stats['hackernews']}, PH={source_stats['producthunt']}")
+        
+        return total_collected, new_count, source_stats
 
     def _collect_repositories(self) -> Tuple[int, int]:
         logger.info("Collecting repositories from GitHub...")
@@ -223,9 +313,11 @@ def main():
     parser = argparse.ArgumentParser(description='GitHub Radar - Trending Project Analyzer')
     parser.add_argument('--once', action='store_true', help='Run once and exit')
     parser.add_argument('--test', action='store_true', help='Test connections and exit')
+    parser.add_argument('--single-source', action='store_true', help='Only use GitHub as source')
     args = parser.parse_args()
     
-    radar = GitHubRadar()
+    use_multi_source = not args.single_source
+    radar = GitHubRadar(use_multi_source=use_multi_source)
     
     if args.test:
         radar._test_connections()
