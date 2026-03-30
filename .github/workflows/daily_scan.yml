@@ -1,0 +1,75 @@
+name: GitHub Radar Daily Scan
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: false
+        default: 'once'
+        type: choice
+        options:
+          - once
+          - test
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        working-directory: ./github_radar
+      
+      - name: Create .env file
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHATGROUP_ID: ${{ secrets.TELEGRAM_CHATGROUP_ID }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          cat > .env << EOF
+          GITHUB_TOKEN=${GITHUB_TOKEN}
+          TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+          TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+          TELEGRAM_CHATGROUP_ID=${TELEGRAM_CHATGROUP_ID}
+          GOOGLE_API_KEY=${GOOGLE_API_KEY}
+          DB_PATH=github_radar.db
+          SCAN_INTERVAL=240
+          MIN_SCORE_TO_NOTIFY=70
+          DEBUG=False
+          EOF
+        working-directory: ./github_radar
+      
+      - name: Run scan
+        run: |
+          if [ "${{ github.event.inputs.mode }}" == "test" ]; then
+            python main.py --test
+          else
+            python main.py --once
+          fi
+        working-directory: ./github_radar
+      
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-radar-db
+          path: github_radar/github_radar.db
+          retention-days: 30
