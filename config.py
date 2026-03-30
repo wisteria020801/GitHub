@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-env_path = Path(__file__).parent.parent / '.env'
+env_path = Path(__file__).parent / '.env'
+if not env_path.exists():
+    env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path)
 
 
