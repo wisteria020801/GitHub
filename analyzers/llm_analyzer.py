@@ -94,11 +94,19 @@ class LLMAnalyzer:
     API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
     REQUEST_DELAY = 3.0
     MIN_README_LENGTH = 100
+    
+    MODEL_MAPPING = {
+        'Google Gemini 2.5 Flash': 'gemini-2.5-flash',
+        'Google Gemini 2.0 Flash': 'gemini-2.0-flash',
+        'gemini-2.5-flash': 'gemini-2.5-flash',
+        'gemini-2.0-flash': 'gemini-2.0-flash',
+    }
 
     def __init__(self, config: LLMConfig):
         self.config = config
         self.api_key = config.api_key
-        self.model = config.model
+        self.model_name = config.model
+        self.model = self.MODEL_MAPPING.get(config.model, 'gemini-2.0-flash')
         self.session = requests.Session()
         self._last_request_time = 0
         self._error_log: List[AnalysisError] = []

@@ -51,6 +51,7 @@ jobs:
           TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
           TELEGRAM_CHATGROUP_ID=${TELEGRAM_CHATGROUP_ID}
           GOOGLE_API_KEY=${GOOGLE_API_KEY}
+          LLM_MODEL=gemini-2.5-flash
           DB_PATH=github_radar.db
           SCAN_INTERVAL=240
           MIN_SCORE_TO_NOTIFY=70

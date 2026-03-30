@@ -86,7 +86,7 @@ class Config:
             ),
             llm=LLMConfig(
                 api_key=google_api_key,
-                model=os.getenv('LLM_MODEL', 'gemini-2.0-flash'),
+                model=os.getenv('LLM_MODEL', os.getenv('model', 'gemini-2.0-flash')),
             ),
             database=DatabaseConfig(
                 path=os.getenv('DB_PATH', 'github_radar.db'),
