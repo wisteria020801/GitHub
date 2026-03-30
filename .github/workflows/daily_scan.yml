@@ -30,12 +30,12 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
       
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-        working-directory: ./github_radar
       
       - name: Create .env file
         env:
@@ -57,7 +57,6 @@ jobs:
           MIN_SCORE_TO_NOTIFY=70
           DEBUG=False
           EOF
-        working-directory: ./github_radar
       
       - name: Run scan
         run: |
@@ -66,11 +65,10 @@ jobs:
           else
             python main.py --once
           fi
-        working-directory: ./github_radar
       
       - name: Upload database artifact
         uses: actions/upload-artifact@v4
         with:
           name: github-radar-db
-          path: github_radar/github_radar.db
+          path: github_radar.db
           retention-days: 30
