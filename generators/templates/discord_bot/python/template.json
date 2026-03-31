@@ -1,0 +1,66 @@
+{
+  "name": "Discord Bot",
+  "description": "Discord机器人模板",
+  "files": [
+    {
+      "path": "bot/__init__.py",
+      "content": "\"\"\"{{PROJECT_NAME}} - Discord Bot\"\"\"\n__version__ = \"0.1.0\"\n"
+    },
+    {
+      "path": "bot/main.py",
+      "content": "\"\"\"\n{{PROJECT_NAME}} - Discord Bot 入口\n\n{{PROJECT_DESCRIPTION}}\n\"\"\"\nimport asyncio\nimport discord\nfrom discord.ext import commands\nfrom bot.config import settings\nfrom bot.cogs import setup_cogs\n\n\nclass Bot(commands.Bot):\n    \"\"\"自定义 Bot 类\"\"\"\n    \n    def __init__(self):\n        intents = discord.Intents.default()\n        intents.message_content = True\n        intents.members = True\n        \n        super().__init__(\n            command_prefix=settings.PREFIX,\n            intents=intents,\n            description=\"{{PROJECT_DESCRIPTION}}\"\n        )\n    \n    async def setup_hook(self):\n        \"\"\"设置钩子 - 加载扩展\"\"\"\n        await setup_cogs(self)\n        print(f\"已登录为 {self.user}\")\n    \n    async def on_ready(self):\n        \"\"\"Bot 就绪事件\"\"\"\n        print(f\"Bot is ready! Logged in as {self.user}\")\n        # TODO: 添加启动时的初始化逻辑\n    \n    async def on_message(self, message):\n        \"\"\"消息事件\"\"\"\n        if message.author.bot:\n            return\n        \n        # TODO: 添加消息处理逻辑\n        await self.process_commands(message)\n\n\ndef main():\n    \"\"\"主函数\"\"\"\n    bot = Bot()\n    bot.run(settings.TOKEN)\n\n\nif __name__ == \"__main__\":\n    main()\n"
+    },
+    {
+      "path": "bot/config.py",
+      "content": "\"\"\"配置管理\"\"\"\nimport os\nfrom typing import List\n\n\nclass Settings:\n    \"\"\"Bot 配置\"\"\"\n    \n    # Discord 配置\n    TOKEN: str = os.environ.get(\"DISCORD_TOKEN\", \"\")\n    PREFIX: str = os.environ.get(\"BOT_PREFIX\", \"!\")\n    \n    # 功能开关\n    DEBUG: bool = os.environ.get(\"DEBUG\", \"false\").lower() == \"true\"\n    \n    # TODO: 添加更多配置\n    # DATABASE_URL: str = os.environ.get(\"DATABASE_URL\", \"\")\n    \n    # 权限配置\n    ADMIN_IDS: List[int] = []\n    \n    def __init__(self):\n        if not self.TOKEN:\n            raise ValueError(\"DISCORD_TOKEN 环境变量未设置\")\n\n\nsettings = Settings()\n"
+    },
+    {
+      "path": "bot/cogs/__init__.py",
+      "content": "\"\"\"Cog 扩展模块\"\"\"\nfrom .general import General\nfrom .admin import Admin\n\n\nasync def setup_cogs(bot):\n    \"\"\"加载所有 Cogs\"\"\"\n    await bot.add_cog(General(bot))\n    await bot.add_cog(Admin(bot))\n    # TODO: 添加更多 Cogs\n"
+    },
+    {
+      "path": "bot/cogs/general.py",
+      "content": "\"\"\"通用命令模块\n\n{{CORE_FEATURES}}\n\"\"\"\nimport discord\nfrom discord.ext import commands\n\n\nclass General(commands.Cog):\n    \"\"\"通用命令\"\"\"\n    \n    def __init__(self, bot):\n        self.bot = bot\n    \n    @commands.command(name=\"hello\")\n    async def hello(self, ctx):\n        \"\"\"打招呼命令\"\"\"\n        await ctx.send(f\"你好，{ctx.author.mention}！\")\n    \n    @commands.command(name=\"info\")\n    async def info(self, ctx):\n        \"\"\"显示 Bot 信息\"\"\"\n        embed = discord.Embed(\n            title=\"{{PROJECT_NAME}}\",\n            description=\"{{PROJECT_DESCRIPTION}}\",\n            color=discord.Color.blue()\n        )\n        embed.add_field(name=\"版本\", value=\"0.1.0\")\n        embed.add_field(name=\"服务器数\", value=len(self.bot.guilds))\n        \n        await ctx.send(embed=embed)\n    \n    @commands.command(name=\"help\")\n    async def help_command(self, ctx):\n        \"\"\"自定义帮助命令\"\"\"\n        # TODO: 实现自定义帮助信息\n        pass\n"
+    },
+    {
+      "path": "bot/cogs/admin.py",
+      "content": "\"\"\"管理员命令模块\"\"\"\nimport discord\nfrom discord.ext import commands\nfrom bot.config import settings\n\n\ndef is_admin():\n    \"\"\"检查是否为管理员\"\"\"\n    async def predicate(ctx):\n        return ctx.author.id in settings.ADMIN_IDS or ctx.author.guild_permissions.administrator\n    return commands.check(predicate)\n\n\nclass Admin(commands.Cog):\n    \"\"\"管理员命令\"\"\"\n    \n    def __init__(self, bot):\n        self.bot = bot\n    \n    @commands.command(name=\"reload\")\n    @is_admin()\n    async def reload_cog(self, ctx, cog_name: str):\n        \"\"\"重载指定 Cog\"\"\"\n        try:\n            await self.bot.reload_extension(f\"bot.cogs.{cog_name}\")\n            await ctx.send(f\"已重载 {cog_name}\")\n        except Exception as e:\n            await ctx.send(f\"重载失败: {e}\")\n    \n    @commands.command(name=\"sync\")\n    @is_admin()\n    async def sync_commands(self, ctx):\n        \"\"\"同步斜杠命令\"\"\"\n        synced = await self.bot.tree.sync()\n        await ctx.send(f\"已同步 {len(synced)} 个命令\")\n"
+    },
+    {
+      "path": "bot/services/__init__.py",
+      "content": "\"\"\"业务服务模块\"\"\"\n"
+    },
+    {
+      "path": "bot/services/core.py",
+      "content": "\"\"\"核心业务逻辑\n\n{{DIFFERENTIATION}}\n\"\"\"\nfrom typing import Optional\n\n\nclass CoreService:\n    \"\"\"核心业务服务\"\"\"\n    \n    def __init__(self):\n        pass\n    \n    async def process(self, data: dict) -> dict:\n        \"\"\"处理数据\n        \n        TODO: 实现核心业务逻辑\n        \"\"\"\n        return data\n"
+    },
+    {
+      "path": "bot/utils/__init__.py",
+      "content": "\"\"\"工具函数模块\"\"\"\n"
+    },
+    {
+      "path": "bot/utils/helpers.py",
+      "content": "\"\"\"通用工具函数\"\"\"\nimport discord\n\n\ndef create_embed(title: str, description: str, color: discord.Color = None) -> discord.Embed:\n    \"\"\"创建嵌入式消息\"\"\"\n    return discord.Embed(\n        title=title,\n        description=description,\n        color=color or discord.Color.blue()\n    )\n\n\ndef format_duration(seconds: int) -> str:\n    \"\"\"格式化时长\"\"\"\n    minutes, seconds = divmod(seconds, 60)\n    hours, minutes = divmod(minutes, 60)\n    \n    if hours:\n        return f\"{hours}:{minutes:02d}:{seconds:02d}\"\n    return f\"{minutes}:{seconds:02d}\"\n"
+    },
+    {
+      "path": "tests/__init__.py",
+      "content": "\"\"\"\n"
+    },
+    {
+      "path": "tests/test_bot.py",
+      "content": "\"\"\"Bot 测试\"\"\"\nimport pytest\nfrom bot.config import settings\n\n\ndef test_settings():\n    \"\"\"测试配置加载\"\"\"\n    assert settings.PREFIX == \"!\"\n\n\n# TODO: 添加更多测试用例\n"
+    },
+    {
+      "path": ".env.example",
+      "content": "# Discord Bot 配置\nDISCORD_TOKEN=your_bot_token_here\nBOT_PREFIX=!\nDEBUG=false\n\n# TODO: 添加其他配置\n"
+    },
+    {
+      "path": "requirements.txt",
+      "content": "discord.py>=2.3.0\npython-dotenv>=1.0.0\npytest>=7.0.0\n"
+    },
+    {
+      "path": "README.md",
+      "content": "# {{PROJECT_NAME}}\n\n{{PROJECT_DESCRIPTION}}\n\n## 快速开始\n\n1. 创建 Discord Bot 并获取 Token\n   - 访问 https://discord.com/developers/applications\n   - 创建新应用，添加 Bot\n   - 复制 Token\n\n2. 配置环境变量\n```bash\ncp .env.example .env\n# 编辑 .env 文件，填入 DISCORD_TOKEN\n```\n\n3. 运行 Bot\n```bash\npython -m bot.main\n```\n\n## 命令\n\n| 命令 | 说明 |\n|------|------|\n| `!hello` | 打招呼 |\n| `!info` | 显示 Bot 信息 |\n\n## 变现方向\n\n{{MONETIZATION}}\n\n## 差异化\n\n{{DIFFERENTIATION}}\n"
+    }
+  ]
+}

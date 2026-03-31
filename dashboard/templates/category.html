@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category }} - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('stats') }}">统计</a></li>
+            <li class="breadcrumb-item active">{{ category }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📂 {{ category }}</h2>
+        <span class="badge bg-primary">{{ repos|length }} 个项目</span>
+    </div>
+
+    {% if repos %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>项目名称</th>
+                    <th>Stars</th>
+                    <th>评分</th>
+                    <th>描述</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repo in repos %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('detail', repo_id=repo.id) }}" target="_blank">
+                            {{ repo.name }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge bg-warning text-dark">
+                            ⭐ {{ repo.stars|default(0) }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if repo.total_score %}
+                        <span class="badge {% if repo.total_score >= 70 %}bg-success{% elif repo.total_score >= 50 %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {{ "%.1f"|format(repo.total_score) }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">未评分</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ repo.description|truncate_text(50) if repo.description else '-' }}</td>
+                    <td>
+                        <a href="{{ repo.html_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            GitHub
+                        </a>
+                        <a href="{{ url_for('compare_add', repo_id=repo.id) }}" class="btn btn-sm btn-outline-secondary">
+                            对比
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        该分类下暂无项目
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <h5>其他分类</h5>
+        <div class="d-flex flex-wrap gap-2">
+            {% for cat in categories %}
+            {% if cat != category %}
+            <a href="{{ url_for('category_view', category=cat) }}" class="btn btn-outline-secondary btn-sm">
+                {{ cat }}
+            </a>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

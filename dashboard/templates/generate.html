@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}生成 MVP - {{ repo.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">首页</a></li>
+            <li class="breadcrumb-item"><a href="/repo/{{ repo.id }}">{{ repo.name }}</a></li>
+            <li class="breadcrumb-item active">生成 MVP</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-magic"></i> 生成 MVP 骨架
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> {{ error }}
+                    </div>
+                    {% endif %}
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">项目名称</label>
+                            <input type="text" class="form-control" name="project_name" 
+                                   value="{{ repo.name }}" required>
+                            <div class="form-text">生成的项目目录名称</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">项目类型</label>
+                            <select class="form-select" name="project_type">
+                                <optgroup label="后端服务">
+                                    <option value="api" selected>API 服务</option>
+                                    <option value="cli">CLI 工具</option>
+                                </optgroup>
+                                <optgroup label="前端应用">
+                                    <option value="web">Web 应用</option>
+                                    <option value="chrome">Chrome 扩展</option>
+                                </optgroup>
+                                <optgroup label="机器人">
+                                    <option value="discord">Discord Bot</option>
+                                </optgroup>
+                            </select>
+                            <div class="form-text">
+                                <strong>API 服务:</strong> FastAPI + Uvicorn，适合构建 RESTful API<br>
+                                <strong>CLI 工具:</strong> Typer + Rich，适合构建命令行工具<br>
+                                <strong>Web 应用:</strong> React + Vite，现代化前端应用<br>
+                                <strong>Chrome 扩展:</strong> Manifest V3，浏览器扩展<br>
+                                <strong>Discord Bot:</strong> discord.py，聊天机器人
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">原始项目信息</label>
+                            <div class="bg-light p-3 rounded">
+                                <p class="mb-1"><strong>描述:</strong> {{ repo.description or '无' }}</p>
+                                <p class="mb-1"><strong>Stars:</strong> {{ repo.stars | default(0) }}</p>
+                                <p class="mb-0"><strong>来源:</strong> 
+                                    <span class="badge bg-info">{{ repo.source | default('github') }}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {% if repo.analysis %}
+                        <div class="mb-3">
+                            <label class="form-label">分析结果</label>
+                            <div class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                                {% if repo.analysis.target_audience %}
+                                <p class="mb-2"><strong>目标用户:</strong> {{ repo.analysis.target_audience }}</p>
+                                {% endif %}
+                                {% if repo.analysis.monetization_potential %}
+                                <p class="mb-2"><strong>变现潜力:</strong> {{ repo.analysis.monetization_potential }}</p>
+                                {% endif %}
+                                {% if repo.analysis.differentiation_ideas %}
+                                <p class="mb-0"><strong>差异化方向:</strong><br>
+                                    {% for idea in repo.analysis.differentiation_ideas %}
+                                    • {{ idea }}<br>
+                                    {% endfor %}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-magic"></i> 生成骨架
+                            </button>
+                            <a href="/repo/{{ repo.id }}" class="btn btn-outline-secondary">取消</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> 生成说明</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        系统将生成一个<strong>可运行的项目骨架</strong>，包含：
+                    </p>
+                    <ul class="text-muted small">
+                        <li>标准目录结构</li>
+                        <li>配置文件</li>
+                        <li>核心模块框架</li>
+                        <li>详细的 TODO 注释</li>
+                        <li>README 文档</li>
+                    </ul>
+                    <hr>
+                    <p class="text-muted small mb-0">
+                        <strong>输出位置:</strong><br>
+                        <code>./generated_mvps/{项目名}/</code>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-lightbulb"></i> 下一步建议</h6>
+                </div>
+                <div class="card-body">
+                    <ol class="text-muted small mb-0">
+                        <li>生成骨架后，用 IDE 打开项目目录</li>
+                        <li>根据 TODO 注释完善核心逻辑</li>
+                        <li>运行测试验证功能</li>
+                        <li>部署上线验证市场</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

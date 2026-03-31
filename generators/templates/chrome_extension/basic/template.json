@@ -1,0 +1,46 @@
+{
+  "name": "Chrome Extension",
+  "description": "Chrome浏览器扩展模板",
+  "files": [
+    {
+      "path": "manifest.json",
+      "content": "{\n  \"manifest_version\": 3,\n  \"name\": \"{{PROJECT_NAME}}\",\n  \"version\": \"1.0.0\",\n  \"description\": \"{{PROJECT_DESCRIPTION}}\",\n  \"permissions\": [\n    \"storage\",\n    \"activeTab\"\n  ],\n  \"action\": {\n    \"default_popup\": \"popup/popup.html\",\n    \"default_icon\": {\n      \"16\": \"icons/icon16.png\",\n      \"48\": \"icons/icon48.png\",\n      \"128\": \"icons/icon128.png\"\n    }\n  },\n  \"background\": {\n    \"service_worker\": \"background/background.js\"\n  },\n  \"content_scripts\": [\n    {\n      \"matches\": [\"<all_urls>\"],\n      \"js\": [\"content/content.js\"],\n      \"css\": [\"content/content.css\"]\n    }\n  ],\n  \"icons\": {\n    \"16\": \"icons/icon16.png\",\n    \"48\": \"icons/icon48.png\",\n    \"128\": \"icons/icon128.png\"\n  }\n}\n"
+    },
+    {
+      "path": "popup/popup.html",
+      "content": "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body {\n      width: 350px;\n      padding: 15px;\n      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n    }\n    h1 {\n      font-size: 18px;\n      margin-bottom: 15px;\n    }\n    .feature {\n      padding: 10px;\n      margin: 10px 0;\n      background: #f5f5f5;\n      border-radius: 5px;\n    }\n    button {\n      width: 100%;\n      padding: 10px;\n      background: #4285f4;\n      color: white;\n      border: none;\n      border-radius: 5px;\n      cursor: pointer;\n    }\n    button:hover {\n      background: #357ae8;\n    }\n  </style>\n</head>\n<body>\n  <h1>{{PROJECT_NAME}}</h1>\n  <p>{{PROJECT_DESCRIPTION}}</p>\n  \n  <div class=\"feature\">\n    <!-- TODO: 添加功能区域 -->\n  </div>\n  \n  <button id=\"actionBtn\">执行操作</button>\n  \n  <script src=\"popup.js\"></script>\n</body>\n</html>\n"
+    },
+    {
+      "path": "popup/popup.js",
+      "content": "/**\n * Popup 脚本\n * \n * {{CORE_FEATURES}}\n */\n\ndocument.addEventListener('DOMContentLoaded', function() {\n  const actionBtn = document.getElementById('actionBtn');\n  \n  actionBtn.addEventListener('click', async () => {\n    // TODO: 实现按钮点击逻辑\n    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });\n    \n    chrome.tabs.sendMessage(tab.id, { action: 'execute' }, (response) => {\n      console.log('Response:', response);\n    });\n  });\n  \n  // 加载保存的设置\n  chrome.storage.sync.get(['settings'], (result) => {\n    if (result.settings) {\n      console.log('Loaded settings:', result.settings);\n    }\n  });\n});\n"
+    },
+    {
+      "path": "background/background.js",
+      "content": "/**\n * Background Service Worker\n * \n * 处理扩展的后台逻辑\n */\n\n// 监听扩展安装\nchrome.runtime.onInstalled.addListener((details) => {\n  if (details.reason === 'install') {\n    console.log('{{PROJECT_NAME}} 已安装');\n    // 初始化默认设置\n    chrome.storage.sync.set({\n      settings: {\n        enabled: true,\n        // TODO: 添加更多默认设置\n      }\n    });\n  } else if (details.reason === 'update') {\n    console.log('{{PROJECT_NAME}} 已更新');\n  }\n});\n\n// 监听来自 content script 的消息\nchrome.runtime.onMessage.addListener((request, sender, sendResponse) => {\n  if (request.action === 'getData') {\n    // TODO: 处理数据请求\n    sendResponse({ data: null });\n  }\n  return true;\n});\n\n// 监听标签页更新\nchrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {\n  if (changeInfo.status === 'complete') {\n    // TODO: 处理页面加载完成事件\n  }\n});\n"
+    },
+    {
+      "path": "content/content.js",
+      "content": "/**\n * Content Script\n * \n * 在网页中注入的脚本\n * \n * {{DIFFERENTIATION}}\n */\n\n(function() {\n  'use strict';\n\n  // 检查是否已注入\n  if (window.__{{PROJECT_NAME}}_injected) return;\n  window.__{{PROJECT_NAME}}_injected = true;\n\n  console.log('{{PROJECT_NAME}} content script loaded');\n\n  // 监听来自 popup 的消息\n  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {\n    if (request.action === 'execute') {\n      // TODO: 实现页面操作逻辑\n      executeMain();\n      sendResponse({ success: true });\n    }\n    return true;\n  });\n\n  function executeMain() {\n    // TODO: 实现核心功能\n    console.log('Executing main function...');\n  }\n\n  // 初始化\n  function init() {\n    // TODO: 添加初始化逻辑\n  }\n\n  init();\n})();\n"
+    },
+    {
+      "path": "content/content.css",
+      "content": "/* {{PROJECT_NAME}} Content Styles */\n\n/* TODO: 添加注入到页面的样式 */\n"
+    },
+    {
+      "path": "options/options.html",
+      "content": "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <title>{{PROJECT_NAME}} - 设置</title>\n  <style>\n    body {\n      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n      max-width: 600px;\n      margin: 20px auto;\n      padding: 20px;\n    }\n    .setting {\n      margin: 15px 0;\n      padding: 15px;\n      background: #f5f5f5;\n      border-radius: 5px;\n    }\n    label {\n      display: block;\n      margin-bottom: 5px;\n      font-weight: bold;\n    }\n    input[type=\"text\"], select {\n      width: 100%;\n      padding: 8px;\n      border: 1px solid #ddd;\n      border-radius: 4px;\n    }\n    button {\n      padding: 10px 20px;\n      background: #4285f4;\n      color: white;\n      border: none;\n      border-radius: 5px;\n      cursor: pointer;\n    }\n  </style>\n</head>\n<body>\n  <h1>{{PROJECT_NAME}} 设置</h1>\n  \n  <div class=\"setting\">\n    <label>\n      <input type=\"checkbox\" id=\"enabled\" checked>\n      启用扩展\n    </label>\n  </div>\n  \n  <!-- TODO: 添加更多设置项 -->\n  \n  <button id=\"save\">保存设置</button>\n  <div id=\"status\"></div>\n  \n  <script src=\"options.js\"></script>\n</body>\n</html>\n"
+    },
+    {
+      "path": "options/options.js",
+      "content": "// 设置页面脚本\n\ndocument.addEventListener('DOMContentLoaded', function() {\n  // 加载设置\n  chrome.storage.sync.get(['settings'], (result) => {\n    if (result.settings) {\n      document.getElementById('enabled').checked = result.settings.enabled;\n    }\n  });\n\n  // 保存设置\n  document.getElementById('save').addEventListener('click', () => {\n    const settings = {\n      enabled: document.getElementById('enabled').checked,\n      // TODO: 保存其他设置\n    };\n\n    chrome.storage.sync.set({ settings }, () => {\n      document.getElementById('status').textContent = '设置已保存！';\n      setTimeout(() => {\n        document.getElementById('status').textContent = '';\n      }, 2000);\n    });\n  });\n});\n"
+    },
+    {
+      "path": "icons/icon.svg",
+      "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 128 128\">\n  <rect width=\"128\" height=\"128\" rx=\"20\" fill=\"#4285f4\"/>\n  <text x=\"64\" y=\"80\" text-anchor=\"middle\" fill=\"white\" font-size=\"60\" font-weight=\"bold\">E</text>\n</svg>\n"
+    },
+    {
+      "path": "README.md",
+      "content": "# {{PROJECT_NAME}}\n\n{{PROJECT_DESCRIPTION}}\n\n## 安装\n\n1. 打开 Chrome，访问 `chrome://extensions/`\n2. 开启「开发者模式」\n3. 点击「加载已解压的扩展程序」\n4. 选择本项目目录\n\n## 开发\n\n修改代码后，在扩展管理页面点击刷新按钮即可。\n\n## 功能\n\n{{CORE_FEATURES}}\n\n## 变现方向\n\n{{MONETIZATION}}\n\n## 差异化\n\n{{DIFFERENTIATION}}\n"
+    }
+  ]
+}

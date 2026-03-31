@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}生成成功 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">首页</a></li>
+            <li class="breadcrumb-item"><a href="/repo/{{ repo.id }}">{{ repo.name }}</a></li>
+            <li class="breadcrumb-item active">生成结果</li>
+        </ol>
+    </nav>
+
+    <div class="alert alert-success">
+        <h5 class="alert-heading"><i class="bi bi-check-circle"></i> MVP 骨架生成成功！</h5>
+        <p class="mb-0">项目已保存到本地目录，可以使用 IDE 打开继续开发。</p>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-folder"></i> 项目结构</h5>
+                </div>
+                <div class="card-body">
+                    <div class="bg-dark text-light p-3 rounded" style="font-family: monospace; font-size: 14px;">
+                        <div class="text-success">{{ project.slug }}/</div>
+                        {% for file in project.files %}
+                        <div class="ms-3">{{ file.path }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-code"></i> 文件预览</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="accordion" id="fileAccordion">
+                        {% for file in project.files[:5] %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#file{{ loop.index }}">
+                                    <code>{{ file.path }}</code>
+                                </button>
+                            </h2>
+                            <div id="file{{ loop.index }}" class="accordion-collapse collapse" 
+                                 data-bs-parent="#fileAccordion">
+                                <div class="accordion-body p-0">
+                                    <pre class="m-0 p-3 bg-light" style="max-height: 300px; overflow-y: auto;"><code>{{ file.content }}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if project.files | length > 5 %}
+                    <div class="p-3 text-muted text-center">
+                        ... 共 {{ project.files | length }} 个文件
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> 项目信息</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td class="text-muted">名称</td>
+                            <td><strong>{{ project.name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">类型</td>
+                            <td>
+                                <span class="badge bg-primary">{{ project.project_type }}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">文件数</td>
+                            <td>{{ project.files | length }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">输出路径</td>
+                            <td><code class="small">{{ project.output_path }}</code></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-play-circle"></i> 快速开始</h6>
+                </div>
+                <div class="card-body">
+                    {% if project.project_type == 'api' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+pip install -r requirements.txt
+uvicorn app.main:app --reload</pre>
+                    <p class="text-muted small mb-0">
+                        启动后访问 <a href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</a>
+                    </p>
+                    {% elif project.project_type == 'cli' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-0">cd {{ project.output_path }}
+pip install -e .
+{{ project.slug }} --help</pre>
+                    {% elif project.project_type == 'web' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+npm install
+npm run dev</pre>
+                    <p class="text-muted small mb-0">
+                        启动后访问 <a href="http://localhost:3000" target="_blank">http://localhost:3000</a>
+                    </p>
+                    {% elif project.project_type == 'chrome' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">1. 打开 Chrome，访问 chrome://extensions/
+2. 开启「开发者模式」
+3. 点击「加载已解压的扩展程序」
+4. 选择 {{ project.output_path }} 目录</pre>
+                    {% elif project.project_type == 'discord' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+cp .env.example .env
+# 编辑 .env 填入 DISCORD_TOKEN
+python -m bot.main</pre>
+                    {% else %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-0">cd {{ project.output_path }}
+# 查看项目 README.md 了解如何运行</pre>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 mt-3">
+                <a href="/generated/{{ project.slug }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> 查看详情
+                </a>
+                <a href="/generated" class="btn btn-outline-secondary">
+                    <i class="bi bi-list"></i> 所有生成项目
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

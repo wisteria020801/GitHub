@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}生成结果 - {{ result.original_name }} - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail', repo_id=repo.id) }}">{{ repo.name }}</a></li>
+            <li class="breadcrumb-item active">生成结果</li>
+        </ol>
+    </nav>
+
+    <div class="alert alert-success">
+        <h4 class="alert-heading">🎉 成功生成 {{ result.versions|length }} 个差异化版本！</h4>
+        <p class="mb-0">基于 <strong>{{ result.original_name }}</strong> 生成了以下版本：</p>
+    </div>
+
+    <div class="row">
+        {% for version in result.versions %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">{{ version.version_name }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">{{ version.description }}</p>
+                    
+                    <h6>✨ 新增功能</h6>
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for feature in version.features %}
+                        <li class="list-group-item px-0 py-1">{{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <h6>📁 新增模块</h6>
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        {% for module in version.modules %}
+                        <span class="badge bg-info">{{ module }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mt-auto">
+                        <a href="{{ url_for('generated_detail', slug=version.project.slug) }}" 
+                           class="btn btn-primary btn-sm">
+                            查看代码
+                        </a>
+                        <a href="file:///{{ version.project.output_path|replace('\\', '/') }}" 
+                           class="btn btn-outline-secondary btn-sm" target="_blank">
+                            打开目录
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">📂 输出目录</h5>
+        </div>
+        <div class="card-body">
+            <code>{{ result.output_dir }}</code>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('list_generated') }}" class="btn btn-outline-primary">
+            查看所有生成的项目
+        </a>
+        <a href="{{ url_for('detail', repo_id=repo.id) }}" class="btn btn-outline-secondary">
+            返回原始项目
+        </a>
+    </div>
+</div>
+{% endblock %}

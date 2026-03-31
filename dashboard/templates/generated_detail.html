@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - MVP 项目详情{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">首页</a></li>
+            <li class="breadcrumb-item"><a href="/generated">已生成项目</a></li>
+            <li class="breadcrumb-item active">{{ project.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> 项目信息</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td class="text-muted">名称</td>
+                            <td><strong>{{ project.name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Slug</td>
+                            <td><code>{{ project.slug }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">类型</td>
+                            <td>
+                                <span class="badge bg-primary">{{ project.get('project_type', 'unknown') }}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">文件数</td>
+                            <td>{{ project.files | length }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">创建时间</td>
+                            <td>{{ project.get('created_at', '未知') }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-folder"></i> 输出路径</h6>
+                </div>
+                <div class="card-body">
+                    <code class="small">{{ project.output_path }}</code>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-play-circle"></i> 快速开始</h6>
+                </div>
+                <div class="card-body">
+                    {% if project.get('project_type') == 'api' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+pip install -r requirements.txt
+uvicorn app.main:app --reload</pre>
+                    {% elif project.get('project_type') == 'cli' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+pip install -e .
+{{ project.slug }} --help</pre>
+                    {% elif project.get('project_type') == 'web' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+npm install
+npm run dev</pre>
+                    {% elif project.get('project_type') == 'chrome' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">1. 打开 Chrome，访问 chrome://extensions/
+2. 开启「开发者模式」
+3. 点击「加载已解压的扩展程序」
+4. 选择项目目录</pre>
+                    {% elif project.get('project_type') == 'discord' %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+cp .env.example .env
+# 编辑 .env 填入 DISCORD_TOKEN
+python -m bot.main</pre>
+                    {% else %}
+                    <pre class="bg-dark text-light p-2 rounded small mb-2">cd {{ project.output_path }}
+# 查看项目结构
+ls -la</pre>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('view_prompts', slug=project.slug) }}" class="btn btn-success btn-sm mt-2">
+                        📝 查看提示词
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-files"></i> 文件列表 ({{ project.files | length }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for file in project.files %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-file-earmark-code text-primary"></i>
+                                    <code>{{ file.path }}</code>
+                                </div>
+                                <span class="badge bg-secondary">{{ file.size }} bytes</span>
+                            </div>
+                            <pre class="mt-2 mb-0 p-2 bg-light rounded small" 
+                                 style="max-height: 150px; overflow-y: auto;"><code>{{ file.content | truncate(500) }}</code></pre>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}增强版生成 - {{ repo.name }} - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail', repo_id=repo.id) }}">{{ repo.name }}</a></li>
+            <li class="breadcrumb-item active">增强版生成</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📋 原始项目信息</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{{ repo.name }}</h6>
+                    <p class="text-muted small">{{ repo.full_name }}</p>
+                    <p class="small">{{ repo.description|truncate_text(150) if repo.description else '-' }}</p>
+                    
+                    {% if repo.total_score %}
+                    <div class="mb-3">
+                        <span class="badge bg-success">评分: {{ "%.1f"|format(repo.total_score) }}</span>
+                        <span class="badge bg-warning text-dark">⭐ {{ repo.stars }}</span>
+                        <span class="badge bg-info">{{ repo.language or 'Unknown' }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <h6>📊 LLM分析结果</h6>
+                    {% if repo.problem_solved %}
+                    <p class="small"><strong>解决问题:</strong> {{ repo.problem_solved }}</p>
+                    {% endif %}
+                    {% if repo.target_audience %}
+                    <p class="small"><strong>目标用户:</strong> {{ repo.target_audience }}</p>
+                    {% endif %}
+                    {% if repo.monetization_potential %}
+                    <p class="small"><strong>变现潜力:</strong> {{ repo.monetization_potential }}</p>
+                    {% endif %}
+                    
+                    {% if repo.differentiation_ideas_list %}
+                    <div class="mt-3">
+                        <h6>💡 差异化建议</h6>
+                        <ul class="list-group list-group-flush small">
+                            {% for idea in repo.differentiation_ideas_list[:5] %}
+                            <li class="list-group-item px-0">{{ idea }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">🚀 增强版生成配置</h5>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    
+                    <div class="alert alert-info">
+                        <strong>增强版生成</strong> 会自动生成以下内容：
+                        <ul class="mb-0 mt-2">
+                            <li>完整的项目骨架代码</li>
+                            <li>差异化分析提示词</li>
+                            <li>技术栈选择提示词</li>
+                            <li>变现策略提示词</li>
+                        </ul>
+                        <p class="mb-0 mt-2 small text-muted">
+                            这些提示词可以直接复制到 Claude/GPT-4 中获取详细建议。
+                        </p>
+                    </div>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">项目名称</label>
+                            <input type="text" class="form-control" name="project_name" 
+                                   value="{{ repo.name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">项目类型</label>
+                            <select class="form-select" name="project_type">
+                                <optgroup label="后端服务">
+                                    <option value="api" selected>API服务</option>
+                                    <option value="cli">CLI工具</option>
+                                </optgroup>
+                                <optgroup label="前端应用">
+                                    <option value="web">Web应用</option>
+                                    <option value="chrome">Chrome扩展</option>
+                                </optgroup>
+                                <optgroup label="机器人">
+                                    <option value="discord">Discord Bot</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="use_llm" value="true" id="useLlmSwitch" checked>
+                                <label class="form-check-label" for="useLlmSwitch">
+                                    <strong>🤖 启用LLM自动分析</strong>
+                                    <span class="badge bg-success ms-1">推荐</span>
+                                </label>
+                                <div class="form-text">
+                                    启用后，系统会使用LLM自动分析项目并填充提示词变量，生成更精准的建议。
+                                    <br>关闭则使用基础模板填充。
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                🚀 生成增强版项目
+                            </button>
+                            <a href="{{ url_for('detail', repo_id=repo.id) }}" class="btn btn-outline-secondary">
+                                返回详情
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">📖 生成后将包含</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>📁 项目文件</h6>
+                            <ul class="small">
+                                <li>app/main.py - 应用入口</li>
+                                <li>app/config.py - 配置管理</li>
+                                <li>app/routers/ - API路由</li>
+                                <li>app/services/ - 业务逻辑</li>
+                                <li>app/models/ - 数据模型</li>
+                                <li>requirements.txt - 依赖</li>
+                                <li>README.md - 项目文档</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>📝 提示词文件</h6>
+                            <ul class="small">
+                                <li>.prompts/code_generation.md</li>
+                                <li>.prompts/differentiation.md</li>
+                                <li>.prompts/tech_stack.md</li>
+                                <li>.prompts/monetization.md</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

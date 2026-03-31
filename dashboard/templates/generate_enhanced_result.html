@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}生成结果 - {{ result.project_name }} - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail', repo_id=repo.id) }}">{{ repo.name }}</a></li>
+            <li class="breadcrumb-item active">生成结果</li>
+        </ol>
+    </nav>
+
+    <div class="alert alert-success">
+        <h4 class="alert-heading">🎉 增强版项目生成成功！</h4>
+        <p class="mb-0">
+            已生成 <strong>{{ result.project_name }}</strong> 及配套提示词
+            {% if use_llm %}
+            <span class="badge bg-info ms-2">🤖 LLM自动分析</span>
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📁 生成的项目</h5>
+                </div>
+                <div class="card-body">
+                    {% if result.generated_project %}
+                    <h6>{{ result.generated_project.name }}</h6>
+                    <p class="text-muted small">{{ result.generated_project.description }}</p>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-info">{{ result.generated_project.project_type }}</span>
+                        <span class="badge bg-secondary">{{ result.generated_project.files|length }} 文件</span>
+                    </div>
+                    
+                    <h6>文件列表</h6>
+                    <ul class="list-group list-group-flush small" style="max-height: 200px; overflow-y: auto;">
+                        {% for file in result.generated_project.files[:15] %}
+                        <li class="list-group-item px-0 py-1">
+                            <code>{{ file.path }}</code>
+                        </li>
+                        {% endfor %}
+                        {% if result.generated_project.files|length > 15 %}
+                        <li class="list-group-item px-0 py-1 text-muted">
+                            ... 还有 {{ result.generated_project.files|length - 15 }} 个文件
+                        </li>
+                        {% endif %}
+                    </ul>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('generated_detail', slug=result.generated_project.slug) }}" 
+                           class="btn btn-primary btn-sm">
+                            查看代码
+                        </a>
+                        <a href="file:///{{ result.generated_project.output_path|replace('\\', '/') }}" 
+                           class="btn btn-outline-secondary btn-sm" target="_blank">
+                            打开目录
+                        </a>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">项目生成失败</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📝 生成的提示词</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        以下提示词可以直接复制到 Claude/GPT-4 中获取详细建议：
+                    </p>
+                    
+                    {% for name, content in result.prompts_used.items() %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                {% if name == 'code_generation' %}🔧 代码生成
+                                {% elif name == 'differentiation' %}🎯 差异化分析
+                                {% elif name == 'tech_stack' %}🛠️ 技术栈选择
+                                {% elif name == 'monetization' %}💰 变现策略
+                                {% else %}{{ name }}
+                                {% endif %}
+                            </h6>
+                            <span class="badge bg-secondary">{{ content|length }} 字符</span>
+                        </div>
+                        <p class="small text-muted mb-0">
+                            {% if name == 'code_generation' %}
+                            生成项目骨架的核心提示词
+                            {% elif name == 'differentiation' %}
+                            分析项目的差异化方向和竞争策略
+                            {% elif name == 'tech_stack' %}
+                            推荐最优技术栈组合
+                            {% elif name == 'monetization' %}
+                            设计商业模式和定价策略
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('view_prompts', slug=result.generated_project.slug) }}" 
+                           class="btn btn-success btn-sm">
+                            查看所有提示词
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if use_llm and result.analysis %}
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">🤖 LLM分析摘要</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>🎯 目标用户</h6>
+                    <p class="small">{{ result.analysis.target_audience or '开发者' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>🛠️ 推荐技术栈</h6>
+                    <p class="small">{{ result.analysis.tech_stack or 'Python, FastAPI' }}</p>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <h6>💰 变现潜力</h6>
+                    <p class="small">{{ result.analysis.monetization_potential or '中等' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>❓ 解决问题</h6>
+                    <p class="small">{{ result.analysis.problem_solved or '待分析' }}</p>
+                </div>
+            </div>
+            {% if result.analysis.core_features %}
+            <div class="mt-3">
+                <h6>✨ 核心功能</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for feature in result.analysis.core_features %}
+                    <span class="badge bg-primary">{{ feature }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if result.analysis.differentiation_ideas %}
+            <div class="mt-3">
+                <h6>💡 差异化方向</h6>
+                <ul class="list-group list-group-flush small">
+                    {% for idea in result.analysis.differentiation_ideas[:5] %}
+                    <li class="list-group-item px-0 py-1">{{ idea }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">🚀 下一步操作</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h6>🚀 一键部署到GitHub</h6>
+                            <p class="small text-muted mb-2">自动创建GitHub仓库并推送生成的代码</p>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           id="deployRepoName" 
+                                           placeholder="仓库名称" 
+                                           value="{{ result.project_name|lower|replace(' ', '-')|replace('_', '-') }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           id="deployDescription" 
+                                           placeholder="仓库描述" 
+                                           value="{{ repo.description[:100] if repo.description else '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="deployPrivate">
+                                        <label class="form-check-label small" for="deployPrivate">
+                                            私有仓库
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-primary btn-sm w-100" onclick="deployToGitHub()">
+                                        🚀 部署
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="deployStatus" class="mt-2 small"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <h3>1️⃣</h3>
+                            <h6>查看提示词</h6>
+                            <p class="small text-muted">复制提示词到LLM获取建议</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <h3>2️⃣</h3>
+                            <h6>完善代码</h6>
+                            <p class="small text-muted">实现TODO标记的核心逻辑</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <h3>3️⃣</h3>
+                            <h6>实现变现</h6>
+                            <p class="small text-muted">集成支付和订阅系统</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('list_generated') }}" class="btn btn-outline-primary">
+            查看所有生成的项目
+        </a>
+        <a href="{{ url_for('detail', repo_id=repo.id) }}" class="btn btn-outline-secondary">
+            返回原始项目
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const generatedFiles = {{ result.generated_project.files | tojson if result.generated_project else '{}' }};
+
+function deployToGitHub() {
+    const repoName = document.getElementById('deployRepoName').value.trim();
+    const description = document.getElementById('deployDescription').value.trim();
+    const isPrivate = document.getElementById('deployPrivate').checked;
+    const statusDiv = document.getElementById('deployStatus');
+    
+    if (!repoName) {
+        statusDiv.innerHTML = '<span class="text-danger">请输入仓库名称</span>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<span class="text-muted">正在部署...</span>';
+    
+    const files = {};
+    if (generatedFiles && generatedFiles.length) {
+        generatedFiles.forEach(file => {
+            files[file.path] = file.content || '';
+        });
+    }
+    
+    fetch('/api/deploy', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            repo_name: repoName,
+            files: files,
+            description: description,
+            private: isPrivate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusDiv.innerHTML = `
+                <span class="text-success">✅ ${data.message}</span>
+                <br>
+                <a href="${data.repo_url}" target="_blank" class="btn btn-sm btn-outline-success mt-2">
+                    打开仓库
+                </a>
+            `;
+        } else {
+            statusDiv.innerHTML = `<span class="text-danger">❌ ${data.message}</span>`;
+        }
+    })
+    .catch(err => {
+        statusDiv.innerHTML = `<span class="text-danger">请求失败: ${err.message}</span>`;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/deploy/check')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.configured) {
+                document.getElementById('deployStatus').innerHTML = 
+                    '<span class="text-warning">⚠️ 未配置GitHub Token，请设置TOKEN_GITHUB环境变量</span>';
+            }
+        });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}提示词 - {{ slug }} - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('list_generated') }}">已生成</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('generated_detail', slug=slug) }}">{{ slug }}</a></li>
+            <li class="breadcrumb-item active">提示词</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📝 项目提示词</h2>
+        <div>
+            <button class="btn btn-outline-secondary btn-sm" onclick="copyAllPrompts()">
+                📋 复制全部
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group" id="prompt-nav">
+                {% for name, content in prompts.items() %}
+                <a href="#prompt-{{ name }}" class="list-group-item list-group-item-action">
+                    {% if name == 'code_generation' %}🔧 代码生成
+                    {% elif name == 'differentiation' %}🎯 差异化分析
+                    {% elif name == 'tech_stack' %}🛠️ 技术栈选择
+                    {% elif name == 'monetization' %}💰 变现策略
+                    {% else %}{{ name }}
+                    {% endif %}
+                    <span class="badge bg-secondary float-end">{{ content|length }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6>💡 使用方法</h6>
+                    <ol class="small mb-0">
+                        <li>选择一个提示词</li>
+                        <li>点击"复制"按钮</li>
+                        <li>粘贴到 Claude/GPT-4</li>
+                        <li>获取详细建议</li>
+                    </ol>
+                </div>
+            </div>
+            
+            {% if llm_analysis %}
+            <div class="card mt-3 border-info">
+                <div class="card-header bg-info text-white py-2">
+                    <h6 class="mb-0">🤖 LLM分析结果</h6>
+                </div>
+                <div class="card-body py-2">
+                    {% if llm_analysis.target_audience %}
+                    <p class="small mb-1"><strong>目标用户:</strong> {{ llm_analysis.target_audience }}</p>
+                    {% endif %}
+                    {% if llm_analysis.tech_stack_recommendation %}
+                    <p class="small mb-1"><strong>技术栈:</strong> {{ llm_analysis.tech_stack_recommendation }}</p>
+                    {% endif %}
+                    {% if llm_analysis.monetization_potential %}
+                    <p class="small mb-1"><strong>变现潜力:</strong> {{ llm_analysis.monetization_potential }}</p>
+                    {% endif %}
+                    {% if llm_analysis.core_features %}
+                    <p class="small mb-1"><strong>核心功能:</strong> {{ llm_analysis.core_features | join(', ') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-9">
+            {% for name, content in prompts.items() %}
+            <div class="card mb-4" id="prompt-{{ name }}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        {% if name == 'code_generation' %}🔧 代码生成提示词
+                        {% elif name == 'differentiation' %}🎯 差异化分析提示词
+                        {% elif name == 'tech_stack' %}🛠️ 技术栈选择提示词
+                        {% elif name == 'monetization' %}💰 变现策略提示词
+                        {% else %}{{ name }} 提示词
+                        {% endif %}
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="copyPrompt('{{ name }}')">
+                        📋 复制
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="m-0 p-3 bg-dark text-light" style="max-height: 500px; overflow-y: auto; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;" id="content-{{ name }}">{{ content | e }}</pre>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                暂无提示词
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function copyPrompt(name) {
+    const element = document.getElementById('content-' + name);
+    if (!element) {
+        alert('未找到提示词内容');
+        return;
+    }
+    const content = element.innerText;
+    navigator.clipboard.writeText(content).then(() => {
+        showToast('已复制 ' + name + ' 提示词到剪贴板');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制');
+    });
+}
+
+function copyAllPrompts() {
+    const promptElements = document.querySelectorAll('[id^="content-"]');
+    let allContent = '';
+    
+    promptElements.forEach(element => {
+        const name = element.id.replace('content-', '');
+        allContent += '=== ' + name + ' ===\n\n';
+        allContent += element.innerText;
+        allContent += '\n\n';
+    });
+    
+    navigator.clipboard.writeText(allContent).then(() => {
+        showToast('已复制所有提示词到剪贴板');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制');
+    });
+}
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast show position-fixed';
+    toast.style.cssText = 'bottom: 20px; right: 20px; background: #28a745; color: white; padding: 10px 20px; border-radius: 5px; z-index: 9999;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 2000);
+}
+</script>
+{% endblock %}

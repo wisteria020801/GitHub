@@ -180,6 +180,7 @@ class MultiSourceCollector:
                 readme = self.github.fetch_readme_for_repository(repo)
                 if readme:
                     repo.readme_content = readme
+                repo.source = source_item.source
             
             return repo
         except Exception as e:

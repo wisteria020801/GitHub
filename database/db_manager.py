@@ -123,14 +123,15 @@ class DatabaseManager:
                 INSERT OR IGNORE INTO repositories 
                 (github_id, full_name, name, description, html_url, language, topics, 
                  stars, forks, open_issues, created_at, pushed_at, license_name, 
-                 readme_content, readme_fetched_at, first_seen_at, last_updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 readme_content, readme_fetched_at, first_seen_at, last_updated_at, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 repo.github_id, repo.full_name, repo.name, repo.description,
                 repo.html_url, repo.language, repo.topics_json, repo.stars,
                 repo.forks, repo.open_issues, repo.created_at, repo.pushed_at,
                 repo.license_name, repo.readme_content, repo.readme_fetched_at,
-                repo.first_seen_at or datetime.now(), repo.last_updated_at or datetime.now()
+                repo.first_seen_at or datetime.now(), repo.last_updated_at or datetime.now(),
+                repo.source
             ))
             return cursor.lastrowid
 
@@ -160,11 +161,11 @@ class DatabaseManager:
             cursor.execute('''
                 UPDATE repositories SET
                     stars = ?, forks = ?, open_issues = ?, description = ?,
-                    readme_content = ?, readme_fetched_at = ?, last_updated_at = ?
+                    readme_content = ?, readme_fetched_at = ?, last_updated_at = ?, source = ?
                 WHERE id = ?
             ''', (
                 repo.stars, repo.forks, repo.open_issues, repo.description,
-                repo.readme_content, repo.readme_fetched_at, datetime.now(), repo.id
+                repo.readme_content, repo.readme_fetched_at, datetime.now(), repo.source, repo.id
             ))
             return cursor.rowcount > 0
 
@@ -336,3 +337,46 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute('SELECT * FROM repositories ORDER BY stars DESC LIMIT ?', (limit,))
             return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_repositories_by_stars(self, limit: int = 10) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM repositories ORDER BY stars DESC LIMIT ?', (limit,))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_repositories_by_date(self, limit: int = 10) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM repositories WHERE created_at IS NOT NULL ORDER BY created_at DESC LIMIT ?', (limit,))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_repositories_by_date_range(self, start_date, end_date) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM repositories 
+                WHERE created_at BETWEEN ? AND ? 
+                ORDER BY created_at DESC
+            ''', (start_date, end_date))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_total_repositories(self) -> int:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM repositories')
+            return cursor.fetchone()[0]
+
+    def get_total_analyzed_repositories(self) -> int:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(DISTINCT repo_id) FROM analysis_results')
+            return cursor.fetchone()[0]
+
+    def get_today_repositories(self) -> int:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) FROM repositories 
+                WHERE DATE(first_seen_at) = DATE('now')
+            ''')
+            return cursor.fetchone()[0]

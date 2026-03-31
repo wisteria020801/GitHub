@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>📊 统计</h2>
+    <div class="btn-group">
+        <a href="/export/csv" class="btn btn-outline-success btn-sm">📥 导出CSV</a>
+        <a href="/export/json" class="btn btn-outline-info btn-sm">📥 导出JSON</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">仓库总数</div>
+        <div class="display-6">{{ stats.total_repos }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">已分析</div>
+        <div class="display-6">{{ stats.analyzed_repos }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">已评分</div>
+        <div class="display-6">{{ stats.scored_repos }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="text-muted">已推送</div>
+        <div class="display-6">{{ stats.notified_repos }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">评分概览</h5>
+        <p class="mb-1"><strong>平均分：</strong>{{ stats.avg_score or "-" }}</p>
+        <p class="mb-1"><strong>最高分项目：</strong>{{ stats.top_repo_name or "-" }}</p>
+        <p class="mb-0"><strong>最高分：</strong>{{ stats.top_repo_score or "-" }}</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header">📡 数据来源</div>
+      <div class="card-body">
+        {% if stats.sources %}
+        <div class="d-flex flex-wrap gap-2">
+          {% for row in stats.sources %}
+          <span class="badge bg-primary">{{ row.source }}: {{ row.cnt }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <span class="text-muted">暂无来源数据</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header">📈 评分分布</div>
+      <div class="card-body">
+        <canvas id="scoreChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header">⭐ Star分布</div>
+      <div class="card-body">
+        <canvas id="starsChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header">📡 数据来源分布</div>
+      <div class="card-body">
+        <canvas id="sourceChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header">💻 编程语言分布</div>
+      <div class="card-body">
+        <canvas id="languageChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header">📂 领域分类热度</div>
+  <div class="card-body">
+    <canvas id="categoryChart" height="100"></canvas>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header">📂 领域分类</div>
+  <div class="card-body">
+    {% if stats.categories %}
+    <div class="row">
+      {% for cat in stats.categories %}
+      <div class="col-md-4 mb-2">
+        <a href="{{ url_for('category_view', category=cat.category) }}" 
+           class="text-decoration-none">
+          <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+            <span>{{ cat.category }}</span>
+            <span class="badge bg-secondary">{{ cat.count }}</span>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <span class="text-muted">暂无分类数据</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header">⚡ 快捷操作</div>
+  <div class="card-body">
+    <a href="{{ url_for('compare_view') }}" class="btn btn-outline-primary me-2">
+      ⚖️ 项目对比
+    </a>
+    <a href="{{ url_for('list_generated') }}" class="btn btn-outline-success me-2">
+      🚀 已生成的MVP
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartColors = {
+        primary: 'rgba(13, 110, 253, 0.8)',
+        success: 'rgba(25, 135, 84, 0.8)',
+        warning: 'rgba(255, 193, 7, 0.8)',
+        danger: 'rgba(220, 53, 69, 0.8)',
+        info: 'rgba(13, 202, 240, 0.8)',
+        secondary: 'rgba(108, 117, 125, 0.8)'
+    };
+    
+    const colorPalette = [
+        chartColors.primary,
+        chartColors.success,
+        chartColors.warning,
+        chartColors.danger,
+        chartColors.info,
+        chartColors.secondary
+    ];
+
+    fetch('/api/charts/score_distribution')
+        .then(response => response.json())
+        .then(data => {
+            new Chart(document.getElementById('scoreChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: '项目数量',
+                        data: data.data,
+                        backgroundColor: chartColors.primary,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        });
+
+    fetch('/api/charts/stars_distribution')
+        .then(response => response.json())
+        .then(data => {
+            new Chart(document.getElementById('starsChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: '项目数量',
+                        data: data.data,
+                        backgroundColor: chartColors.warning,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        });
+
+    fetch('/api/charts/source_distribution')
+        .then(response => response.json())
+        .then(data => {
+            new Chart(document.getElementById('sourceChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.data,
+                        backgroundColor: colorPalette
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        });
+
+    fetch('/api/charts/language_distribution')
+        .then(response => response.json())
+        .then(data => {
+            new Chart(document.getElementById('languageChart'), {
+                type: 'pie',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.data,
+                        backgroundColor: colorPalette
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        });
+
+    fetch('/api/charts/category_distribution')
+        .then(response => response.json())
+        .then(data => {
+            new Chart(document.getElementById('categoryChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: '项目数量',
+                        data: data.data,
+                        backgroundColor: chartColors.success,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+        });
+});
+</script>
+{% endblock %}

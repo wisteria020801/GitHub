@@ -154,6 +154,7 @@ class GitHubCollector:
             created_at=parse_github_date(data.get('created_at')),
             pushed_at=parse_github_date(data.get('pushed_at')),
             license_name=license_name,
+            source='github',
         )
 
     def get_rate_limit(self) -> Dict[str, Any]:

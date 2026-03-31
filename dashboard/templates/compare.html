@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}项目对比 - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item active">项目对比</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>⚖️ 项目对比</h2>
+        {% if comparison.repos %}
+        <a href="{{ url_for('compare_view') }}" class="btn btn-outline-secondary">
+            清空对比
+        </a>
+        {% endif %}
+    </div>
+
+    {% if comparison.repos %}
+    <div class="row mb-4">
+        {% for repo in comparison.repos %}
+        <div class="col-md-{{ 12 // comparison.repos|length if comparison.repos|length <= 3 else 4 }}">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ repo.name }}</h5>
+                    <a href="{{ url_for('compare_remove', repo_id=repo.id, repos=selected_ids) }}" class="btn btn-sm btn-outline-danger">
+                        ✕
+                    </a>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">{{ repo.full_name }}</p>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-info">{{ repo.category|default('其他') }}</span>
+                        <span class="badge bg-warning text-dark">⭐ {{ repo.stars|default(0) }}</span>
+                    </div>
+                    
+                    <p class="small">{{ repo.description|truncate_text(100) if repo.description else '-' }}</p>
+                    
+                    <hr>
+                    
+                    <h6>评分详情</h6>
+                    <ul class="list-unstyled small">
+                        <li>总分: <strong>{{ "%.1f"|format(repo.total_score|default(0)) }}</strong></li>
+                        <li>热度: {{ "%.1f"|format(repo.score_popularity|default(0)) }}</li>
+                        <li>增长: {{ "%.1f"|format(repo.score_growth|default(0)) }}</li>
+                        <li>变现: {{ "%.1f"|format(repo.score_monetization|default(0)) }}</li>
+                        <li>差异化: {{ "%.1f"|format(repo.score_differentiation|default(0)) }}</li>
+                    </ul>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('detail', repo_id=repo.id) }}" class="btn btn-sm btn-outline-primary">
+                            查看详情
+                        </a>
+                        <a href="{{ url_for('generate_multi_versions', repo_id=repo.id) }}" class="btn btn-sm btn-outline-success">
+                            生成MVP
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if comparison.metrics %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">📊 指标对比</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>指标</th>
+                        <th>最小值</th>
+                        <th>平均值</th>
+                        <th>最大值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric, values in comparison.metrics.items() %}
+                    <tr>
+                        <td>
+                            {% if metric == 'stars' %}⭐ Stars
+                            {% elif metric == 'forks' %}🍴 Forks
+                            {% elif metric == 'open_issues' %}📋 Issues
+                            {% elif metric == 'total_score' %}🏆 总分
+                            {% elif metric == 'score_popularity' %}🔥 热度
+                            {% elif metric == 'score_growth' %}📈 增长
+                            {% elif metric == 'score_monetization' %}💰 变现
+                            {% elif metric == 'score_differentiation' %}🎯 差异化
+                            {% else %}{{ metric }}
+                            {% endif %}
+                        </td>
+                        <td>{{ "%.1f"|format(values.min) }}</td>
+                        <td><strong>{{ "%.1f"|format(values.avg) }}</strong></td>
+                        <td>{{ "%.1f"|format(values.max) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="alert alert-info">
+        <h5>如何使用项目对比？</h5>
+        <p>在项目列表或详情页点击"加入对比"按钮，即可将项目添加到对比列表。</p>
+        <p>最多可同时对比 4 个项目。</p>
+        <hr>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">去浏览项目</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

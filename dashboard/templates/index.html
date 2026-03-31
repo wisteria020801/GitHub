@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-3">
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <form class="row g-2 align-items-center" method="get">
+          <div class="col-md-4">
+            <input
+              type="text"
+              name="q"
+              class="form-control"
+              placeholder="搜索项目名、描述、README、分析结论"
+              value="{{ q }}"
+            />
+          </div>
+          <div class="col-md-2">
+            <select class="form-select" name="source">
+              <option value="">全部来源</option>
+              {% for s in sources %}
+              <option value="{{ s }}" {% if source == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <select class="form-select" name="sort">
+              <option value="score" {% if sort_by == "score" %}selected{% endif %}>总分</option>
+              <option value="stars" {% if sort_by == "stars" %}selected{% endif %}>Stars</option>
+              <option value="hot" {% if sort_by == "hot" %}selected{% endif %}>增长</option>
+              <option value="new" {% if sort_by == "new" %}selected{% endif %}>创建时间</option>
+              <option value="updated" {% if sort_by == "updated" %}selected{% endif %}>更新时间</option>
+              <option value="first_seen" {% if sort_by == "first_seen" %}selected{% endif %}>发现时间</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <select class="form-select" name="order">
+              <option value="desc" {% if order == "desc" %}selected{% endif %}>降序</option>
+              <option value="asc" {% if order == "asc" %}selected{% endif %}>升序</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <input type="number" class="form-control" name="page_size" value="{{ page_size }}" min="5" max="100" />
+          </div>
+          <div class="col-md-1 d-grid">
+            <button class="btn btn-primary">查询</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mb-3">
+  <div class="col-12">
+    <div class="btn-group" role="group">
+      <a href="?sort=score&order=desc" class="btn btn-outline-primary {% if sort_by == 'score' and order == 'desc' %}active{% endif %}">
+        🏆 高分项目
+      </a>
+      <a href="?sort=first_seen&order=desc" class="btn btn-outline-success {% if sort_by == 'first_seen' and order == 'desc' %}active{% endif %}">
+        🆕 最近发现
+      </a>
+      <a href="?sort=stars&order=desc" class="btn btn-outline-warning {% if sort_by == 'stars' and order == 'desc' %}active{% endif %}">
+        ⭐ 热门项目
+      </a>
+      <a href="?sort=hot&order=desc" class="btn btn-outline-info {% if sort_by == 'hot' and order == 'desc' %}active{% endif %}">
+        📈 增长最快
+      </a>
+      <a href="?sort=new&order=desc" class="btn btn-outline-secondary {% if sort_by == 'new' and order == 'desc' %}active{% endif %}">
+        🆕 最新创建
+      </a>
+    </div>
+    <div class="btn-group ms-2" role="group">
+      <a href="/export/csv?q={{ q }}&source={{ source }}&sort={{ sort_by }}" class="btn btn-outline-success">
+        📥 导出CSV
+      </a>
+      <a href="/export/json?q={{ q }}&source={{ source }}&sort={{ sort_by }}" class="btn btn-outline-info">
+        📥 导出JSON
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="text-muted">共 {{ total }} 条，当前第 {{ page }} / {{ total_pages }} 页</div>
+  <div class="text-muted">默认显示评分最高 / 可搜索 / 可筛选</div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>项目</th>
+          <th>来源</th>
+          <th>Stars</th>
+          <th>总分</th>
+          <th>增长</th>
+          <th>变现</th>
+          <th>创建时间</th>
+          <th>发现时间</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>
+            <div class="fw-semibold">
+              <a href="{{ url_for('detail', repo_id=item.id) }}" class="text-decoration-none">
+                {{ item.full_name }}
+              </a>
+            </div>
+            <div class="text-muted small">{{ item.description|truncate_text(120) }}</div>
+          </td>
+          <td>
+            {% if item.source %}
+            <span class="badge text-bg-secondary">{{ item.source }}</span>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          <td>{{ item.stars or 0 }}</td>
+          <td>
+            {% set score = item.total_score or 0 %}
+            {% if score >= 70 %}
+            <span class="badge text-bg-success">{{ "%.1f"|format(score) }}</span>
+            {% elif score >= 50 %}
+            <span class="badge text-bg-warning">{{ "%.1f"|format(score) }}</span>
+            {% else %}
+            <span class="badge text-bg-secondary">{{ "%.1f"|format(score) }}</span>
+            {% endif %}
+          </td>
+          <td>{{ "%.1f"|format(item.score_growth or 0) }}</td>
+          <td>{{ "%.1f"|format(item.score_monetization or 0) }}</td>
+          <td>{{ item.created_at|humandate }}</td>
+          <td>{{ item.first_seen_at|humandate }}</td>
+        </tr>
+        {% endfor %}
+        {% if not items %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">没有找到结果</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<nav class="mt-3">
+  <ul class="pagination">
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      <a class="page-link"
+         href="?q={{ q }}&source={{ source }}&sort={{ sort_by }}&order={{ order }}&page={{ page-1 }}&page_size={{ page_size }}">上一页</a>
+    </li>
+    <li class="page-item disabled">
+      <span class="page-link">第 {{ page }} / {{ total_pages }} 页</span>
+    </li>
+    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+      <a class="page-link"
+         href="?q={{ q }}&source={{ source }}&sort={{ sort_by }}&order={{ order }}&page={{ page+1 }}&page_size={{ page_size }}">下一页</a>
+    </li>
+  </ul>
+</nav>
+{% endblock %}

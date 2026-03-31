@@ -1,4 +1,5 @@
 import requests
+import time
 from typing import Optional, List
 from dataclasses import dataclass
 from datetime import datetime
@@ -19,9 +20,12 @@ class TelegramMessage:
 
 
 class TelegramNotifier:
+    MIN_MESSAGE_INTERVAL = 1.0
+    
     def __init__(self, config: TelegramConfig):
         self.config = config
         self.api_base = f"https://api.telegram.org/bot{config.bot_token}"
+        self._last_message_time = 0
 
     @retry_on_failure(max_retries=3, delay=2.0, exceptions=(requests.RequestException,))
     def send_message(
@@ -31,31 +35,59 @@ class TelegramNotifier:
         parse_mode: str = "Markdown",
         disable_web_page_preview: bool = True
     ) -> Optional[int]:
-        target_chat_id = chat_id or self.config.chat_id
+        elapsed = time.time() - self._last_message_time
+        if elapsed < self.MIN_MESSAGE_INTERVAL:
+            sleep_time = self.MIN_MESSAGE_INTERVAL - elapsed
+            logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f}s")
+            time.sleep(sleep_time)
         
-        url = f"{self.api_base}/sendMessage"
-        payload = {
-            "chat_id": target_chat_id,
-            "text": text,
-            "parse_mode": parse_mode,
-            "disable_web_page_preview": disable_web_page_preview
-        }
+        # 尝试的chat_id列表
+        chat_ids_to_try = []
         
-        try:
-            response = requests.post(url, json=payload, timeout=30)
-            response.raise_for_status()
-            data = response.json()
+        # 首先尝试提供的chat_id
+        if chat_id:
+            chat_ids_to_try.append(chat_id)
+        
+        # 然后尝试配置中的chat_id
+        if self.config.chat_id:
+            chat_ids_to_try.append(self.config.chat_id)
+        
+        # 最后尝试配置中的channel_id
+        if self.config.channel_id:
+            chat_ids_to_try.append(self.config.channel_id)
+        
+        # 去重
+        chat_ids_to_try = list(set(chat_ids_to_try))
+        
+        for target_chat_id in chat_ids_to_try:
+            url = f"{self.api_base}/sendMessage"
+            payload = {
+                "chat_id": target_chat_id,
+                "text": text,
+                "parse_mode": parse_mode,
+                "disable_web_page_preview": disable_web_page_preview
+            }
             
-            if data.get("ok"):
-                message_id = data["result"]["message_id"]
-                logger.info(f"Message sent successfully, message_id: {message_id}")
-                return message_id
-            else:
-                logger.error(f"Failed to send message: {data.get('description')}")
-                return None
-        except requests.RequestException as e:
-            logger.error(f"Failed to send Telegram message: {e}")
-            return None
+            try:
+                response = requests.post(url, json=payload, timeout=30)
+                if not response.ok:
+                    logger.error(f"Telegram API error for chat_id {target_chat_id}: {response.status_code} - {response.text}")
+                    continue
+                data = response.json()
+                
+                if data.get("ok"):
+                    message_id = data["result"]["message_id"]
+                    self._last_message_time = time.time()
+                    logger.info(f"Message sent successfully to chat_id {target_chat_id}, message_id: {message_id}")
+                    return message_id
+                else:
+                    logger.error(f"Failed to send message to chat_id {target_chat_id}: {data.get('description')}")
+                    continue
+            except requests.RequestException as e:
+                logger.error(f"Failed to send Telegram message to chat_id {target_chat_id}: {e}")
+                continue
+        
+        return None
 
     def format_project_card(
         self,
@@ -154,7 +186,19 @@ class TelegramNotifier:
         else:
             text = self.format_project_card(repo, score, analysis)
         
-        return self.send_message(text)
+        # 先尝试使用chat_id
+        msg_id = self.send_message(text)
+        if msg_id:
+            return msg_id
+        
+        # 如果失败，尝试使用channel_id
+        if self.config.channel_id:
+            logger.info("Trying channel_id instead of chat_id")
+            msg_id = self.send_message(text, chat_id=self.config.channel_id)
+            if msg_id:
+                return msg_id
+        
+        return None
 
     def notify_batch(
         self,

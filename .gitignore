@@ -1,8 +1,7 @@
-*.pyc
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
 *.so
 .Python
 build/
@@ -21,26 +20,42 @@ wheels/
 .installed.cfg
 *.egg
 
+# Virtual environments
 .env
-.env.local
-.env.*.local
+.venv
+env/
+venv/
+ENV/
 
-*.db
-*.sqlite
-*.sqlite3
-
-logs/
-*.log
-
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-*~
 
-.pytest_cache/
-.coverage
-htmlcov/
+# Database
+*.db
+*.sqlite3
 
+# Logs
+*.log
+logs/
+
+# Generated files (keep templates)
+generated_mvps/
+
+# Test files
+test_*.py
+check_*.py
+verify_*.py
+cleanup_*.py
+migrate_*.py
+get_producthunt_token.py
+
+# Reports
+reports/
+ACCEPTANCE_REPORT.md
+
+# OS
 .DS_Store
 Thumbs.db

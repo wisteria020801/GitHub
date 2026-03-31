@@ -16,6 +16,7 @@ from analyzers.readme_parser import ReadmeParser
 from analyzers.llm_analyzer import LLMAnalyzer
 from scorers.scorer import Scorer
 from notifiers.telegram_notifier import TelegramNotifier
+from notifiers.telegram_command_bot import TelegramCommandBot
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,11 +43,17 @@ class GitHubRadar:
         
         self.running = True
         self._setup_signal_handlers()
+        
+        # Initialize Telegram command bot
+        self.command_bot = TelegramCommandBot(config.telegram, self.db)
+        self.command_bot.start()
 
     def _setup_signal_handlers(self):
         def signal_handler(signum, frame):
             logger.info("Received shutdown signal, stopping...")
             self.running = False
+            if hasattr(self, 'command_bot'):
+                self.command_bot.stop()
             sys.exit(0)
         
         signal.signal(signal.SIGINT, signal_handler)
@@ -71,18 +78,28 @@ class GitHubRadar:
         }
         
         try:
+            logger.info("Step 1: Collecting repositories...")
             if self.use_multi_source:
                 stats['collected'], stats['new'], stats['sources'] = self._collect_from_all_sources()
             else:
                 stats['collected'], stats['new'] = self._collect_repositories()
             
+            logger.info("Step 2: Fetching READMEs...")
             self._fetch_readmes()
+            
+            logger.info("Step 3: Analyzing repositories...")
             stats['analyzed'] = self._analyze_repositories()
+            
+            logger.info("Step 4: Scoring repositories...")
             stats['scored'] = self._score_repositories()
+            
+            logger.info("Step 5: Notifying top projects...")
             stats['notified'] = self._notify_top_projects()
             
         except Exception as e:
             logger.error(f"Error during scan: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             stats['errors'] += 1
         
         logger.info(f"Scan completed: {stats}")

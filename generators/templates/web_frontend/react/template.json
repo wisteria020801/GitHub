@@ -1,0 +1,58 @@
+{
+  "name": "React Web App",
+  "description": "现代化Web前端应用模板",
+  "files": [
+    {
+      "path": "package.json",
+      "content": "{\n  \"name\": \"{{PROJECT_NAME}}\",\n  \"private\": true,\n  \"version\": \"0.1.0\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite\",\n    \"build\": \"vite build\",\n    \"preview\": \"vite preview\"\n  },\n  \"dependencies\": {\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"react-router-dom\": \"^6.20.0\"\n  },\n  \"devDependencies\": {\n    \"@types/react\": \"^18.2.0\",\n    \"@types/react-dom\": \"^18.2.0\",\n    \"@vitejs/plugin-react\": \"^4.2.0\",\n    \"vite\": \"^5.0.0\"\n  }\n}\n"
+    },
+    {
+      "path": "vite.config.js",
+      "content": "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n  server: {\n    port: 3000,\n    open: true\n  }\n})\n"
+    },
+    {
+      "path": "index.html",
+      "content": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>{{PROJECT_NAME}}</title>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.jsx\"></script>\n  </body>\n</html>\n"
+    },
+    {
+      "path": "src/main.jsx",
+      "content": "import React from 'react'\nimport ReactDOM from 'react-dom/client'\nimport { BrowserRouter } from 'react-router-dom'\nimport App from './App'\nimport './index.css'\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <BrowserRouter>\n      <App />\n    </BrowserRouter>\n  </React.StrictMode>\n)\n"
+    },
+    {
+      "path": "src/App.jsx",
+      "content": "/**\n * {{PROJECT_NAME}} - 主应用组件\n * \n * {{PROJECT_DESCRIPTION}}\n */\nimport { Routes, Route } from 'react-router-dom'\nimport Layout from './components/Layout'\nimport Home from './pages/Home'\nimport About from './pages/About'\n\nfunction App() {\n  return (\n    <Layout>\n      <Routes>\n        <Route path=\"/\" element={<Home />} />\n        <Route path=\"/about\" element={<About />} />\n      </Routes>\n    </Layout>\n  )\n}\n\nexport default App\n"
+    },
+    {
+      "path": "src/index.css",
+      "content": "* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\nbody {\n  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,\n    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;\n  line-height: 1.6;\n  color: #333;\n}\n\n.container {\n  max-width: 1200px;\n  margin: 0 auto;\n  padding: 0 20px;\n}\n"
+    },
+    {
+      "path": "src/components/Layout.jsx",
+      "content": "import { Link } from 'react-router-dom'\n\nfunction Layout({ children }) {\n  return (\n    <div className=\"app\">\n      <header className=\"header\">\n        <div className=\"container\">\n          <nav className=\"nav\">\n            <Link to=\"/\" className=\"logo\">\n              {{PROJECT_NAME}}\n            </Link>\n            <div className=\"nav-links\">\n              <Link to=\"/\">首页</Link>\n              <Link to=\"/about\">关于</Link>\n            </div>\n          </nav>\n        </div>\n      </header>\n      <main className=\"main\">\n        {children}\n      </main>\n      <footer className=\"footer\">\n        <div className=\"container\">\n          <p>&copy; 2024 {{PROJECT_NAME}}. All rights reserved.</p>\n        </div>\n      </footer>\n    </div>\n  )\n}\n\nexport default Layout\n"
+    },
+    {
+      "path": "src/pages/Home.jsx",
+      "content": "/**\n * 首页\n * \n * {{CORE_FEATURES}}\n */\nimport { useState, useEffect } from 'react'\n\nfunction Home() {\n  const [data, setData] = useState(null)\n\n  useEffect(() => {\n    // TODO: 加载数据\n  }, [])\n\n  return (\n    <div className=\"container\">\n      <section className=\"hero\">\n        <h1>{{PROJECT_NAME}}</h1>\n        <p>{{PROJECT_DESCRIPTION}}</p>\n      </section>\n\n      <section className=\"features\">\n        <h2>核心功能</h2>\n        <div className=\"feature-grid\">\n          {/* TODO: 添加功能卡片 */}\n        </div>\n      </section>\n    </div>\n  )\n}\n\nexport default Home\n"
+    },
+    {
+      "path": "src/pages/About.jsx",
+      "content": "function About() {\n  return (\n    <div className=\"container\">\n      <h1>关于我们</h1>\n      <p>{{PROJECT_DESCRIPTION}}</p>\n      \n      <h2>差异化优势</h2>\n      <ul>\n        {/* {{DIFFERENTIATION}} */}\n      </ul>\n    </div>\n  )\n}\n\nexport default About\n"
+    },
+    {
+      "path": "src/hooks/useApi.js",
+      "content": "import { useState, useCallback } from 'react'\n\n/**\n * API 请求 Hook\n * \n * TODO: 添加错误处理和重试逻辑\n */\nexport function useApi(baseUrl) {\n  const [loading, setLoading] = useState(false)\n  const [error, setError] = useState(null)\n\n  const request = useCallback(async (endpoint, options = {}) => {\n    setLoading(true)\n    setError(null)\n\n    try {\n      const response = await fetch(`${baseUrl}${endpoint}`, {\n        headers: {\n          'Content-Type': 'application/json',\n          ...options.headers,\n        },\n        ...options,\n      })\n\n      if (!response.ok) {\n        throw new Error(`HTTP error! status: ${response.status}`)\n      }\n\n      const data = await response.json()\n      return data\n    } catch (err) {\n      setError(err.message)\n      throw err\n    } finally {\n      setLoading(false)\n    }\n  }, [baseUrl])\n\n  return { loading, error, request }\n}\n"
+    },
+    {
+      "path": "src/services/api.js",
+      "content": "/**\n * API 服务层\n * \n * TODO: 实现与后端 API 的交互\n */\nconst API_BASE = import.meta.env.VITE_API_BASE || '/api'\n\nexport async function fetchData(endpoint) {\n  const response = await fetch(`${API_BASE}${endpoint}`)\n  if (!response.ok) {\n    throw new Error('Network response was not ok')\n  }\n  return response.json()\n}\n\n// TODO: 添加更多 API 方法\n"
+    },
+    {
+      "path": ".env.example",
+      "content": "VITE_API_BASE=/api\n"
+    },
+    {
+      "path": "README.md",
+      "content": "# {{PROJECT_NAME}}\n\n{{PROJECT_DESCRIPTION}}\n\n## 快速开始\n\n```bash\n# 安装依赖\nnpm install\n\n# 启动开发服务器\nnpm run dev\n```\n\n## 构建\n\n```bash\nnpm run build\n```\n\n## 变现方向\n\n{{MONETIZATION}}\n\n## 差异化\n\n{{DIFFERENTIATION}}\n"
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}生成多版本 - {{ repo.name }} - GitHub Radar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首页</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail', repo_id=repo.id) }}">{{ repo.name }}</a></li>
+            <li class="breadcrumb-item active">生成多版本</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 原始项目</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{{ repo.name }}</h6>
+                    <p class="text-muted small">{{ repo.full_name }}</p>
+                    <p class="small">{{ repo.description|truncate_text(100) if repo.description else '-' }}</p>
+                    
+                    {% if repo.total_score %}
+                    <div class="mb-3">
+                        <span class="badge bg-success">评分: {{ "%.1f"|format(repo.total_score) }}</span>
+                        <span class="badge bg-warning text-dark">⭐ {{ repo.stars }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if repo.differentiation_ideas_list %}
+                    <div class="mt-3">
+                        <h6>💡 LLM建议的差异化方向</h6>
+                        <ul class="list-group list-group-flush small">
+                            {% for idea in repo.differentiation_ideas_list[:5] %}
+                            <li class="list-group-item px-0">{{ idea }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🎯 选择要生成的版本</h5>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    
+                    <form method="POST">
+                        <div class="row">
+                            {% for version_name, template in version_templates.items() %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   name="versions" value="{{ version_name }}" 
+                                                   id="version_{{ loop.index }}">
+                                            <label class="form-check-label" for="version_{{ loop.index }}">
+                                                <strong>{{ version_name }}</strong>
+                                            </label>
+                                        </div>
+                                        <p class="small text-muted mt-2 mb-2">
+                                            {{ template.description_template.format(name=repo.name) }}
+                                        </p>
+                                        <div class="small">
+                                            <strong>新增功能:</strong>
+                                            <ul class="list-inline mb-0">
+                                                {% for feature in template.features %}
+                                                <li class="list-inline-item"><span class="badge bg-light text-dark">{{ feature }}</span></li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                🚀 生成选中的版本
+                            </button>
+                            <a href="{{ url_for('detail', repo_id=repo.id) }}" class="btn btn-outline-secondary">
+                                返回详情
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

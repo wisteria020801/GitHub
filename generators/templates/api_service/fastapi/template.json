@@ -1,0 +1,70 @@
+{
+  "name": "FastAPI Service",
+  "description": "RESTful API 服务模板",
+  "files": [
+    {
+      "path": "app/__init__.py",
+      "content": "\"\"\"{{PROJECT_NAME}} - API Service\"\"\"\n__version__ = \"0.1.0\"\n"
+    },
+    {
+      "path": "app/main.py",
+      "content": "\"\"\"\n{{PROJECT_NAME}} - FastAPI 应用入口\n\n{{PROJECT_DESCRIPTION}}\n\"\"\"\nfrom fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\nfrom app.config import settings\nfrom app.routers import api\n\napp = FastAPI(\n    title=\"{{PROJECT_NAME}}\",\n    description=\"{{PROJECT_DESCRIPTION}}\",\n    version=\"0.1.0\",\n)\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=settings.ALLOWED_ORIGINS,\n    allow_credentials=True,\n    allow_methods=[\"*\"],\n    allow_headers=[\"*\"],\n)\n\napp.include_router(api.router, prefix=\"/api/v1\")\n\n\n@app.get(\"/health\")\nasync def health_check():\n    \"\"\"健康检查端点\"\"\"\n    return {\"status\": \"healthy\", \"version\": \"0.1.0\"}\n\n\n# TODO: 添加启动时的初始化逻辑\n@app.on_event(\"startup\")\nasync def startup_event():\n    pass\n\n\n# TODO: 添加关闭时的清理逻辑\n@app.on_event(\"shutdown\")\nasync def shutdown_event():\n    pass\n"
+    },
+    {
+      "path": "app/config.py",
+      "content": "\"\"\"配置管理模块\"\"\"\nfrom pydantic_settings import BaseSettings\nfrom typing import List\n\n\nclass Settings(BaseSettings):\n    \"\"\"应用配置\"\"\"\n    \n    # 基础配置\n    APP_NAME: str = \"{{PROJECT_NAME}}\"\n    DEBUG: bool = True\n    \n    # API 配置\n    API_V1_PREFIX: str = \"/api/v1\"\n    \n    # CORS 配置\n    ALLOWED_ORIGINS: List[str] = [\"*\"]\n    \n    # TODO: 添加数据库配置\n    # DATABASE_URL: str = \"sqlite:///./app.db\"\n    \n    # TODO: 添加 Redis 配置\n    # REDIS_URL: str = \"redis://localhost:6379\"\n    \n    class Config:\n        env_file = \".env\"\n        case_sensitive = True\n\n\nsettings = Settings()\n"
+    },
+    {
+      "path": "app/routers/__init__.py",
+      "content": "\"\"\"API 路由模块\"\"\"\n"
+    },
+    {
+      "path": "app/routers/api.py",
+      "content": "\"\"\"核心 API 路由\n\n{{CORE_FEATURES}}\n\"\"\"\nfrom fastapi import APIRouter, HTTPException\nfrom pydantic import BaseModel\nfrom typing import Optional\n\nrouter = APIRouter()\n\n\n# TODO: 根据业务需求定义请求/响应模型\nclass ItemRequest(BaseModel):\n    \"\"\"请求模型示例\"\"\"\n    name: str\n    description: Optional[str] = None\n\n\nclass ItemResponse(BaseModel):\n    \"\"\"响应模型示例\"\"\"\n    id: int\n    name: str\n    description: Optional[str] = None\n\n\n@router.get(\"/items\")\nasync def list_items():\n    \"\"\"获取列表\n    \n    TODO: 实现数据获取逻辑\n    \"\"\"\n    return {\"items\": []}\n\n\n@router.post(\"/items\", response_model=ItemResponse)\nasync def create_item(item: ItemRequest):\n    \"\"\"创建新项目\n    \n    TODO: 实现创建逻辑\n    \"\"\"\n    return ItemResponse(id=1, name=item.name, description=item.description)\n\n\n@router.get(\"/items/{item_id}\", response_model=ItemResponse)\nasync def get_item(item_id: int):\n    \"\"\"获取单个项目\n    \n    TODO: 实现查询逻辑\n    \"\"\"\n    raise HTTPException(status_code=404, detail=\"Item not found\")\n"
+    },
+    {
+      "path": "app/models/__init__.py",
+      "content": "\"\"\"数据模型模块\"\"\"\n"
+    },
+    {
+      "path": "app/models/schemas.py",
+      "content": "\"\"\"数据模型定义\n\nTODO: 根据业务需求定义数据模型\n\"\"\"\nfrom pydantic import BaseModel\nfrom typing import Optional\nfrom datetime import datetime\n\n\nclass BaseResponse(BaseModel):\n    \"\"\"基础响应模型\"\"\"\n    success: bool = True\n    message: str = \"\"\n\n\n# TODO: 定义业务数据模型\n"
+    },
+    {
+      "path": "app/services/__init__.py",
+      "content": "\"\"\"业务逻辑模块\"\"\"\n"
+    },
+    {
+      "path": "app/services/core.py",
+      "content": "\"\"\"核心业务逻辑\n\n{{DIFFERENTIATION}}\n\"\"\"\nfrom typing import List, Optional\n\n\nclass CoreService:\n    \"\"\"核心业务服务\n    \n    TODO: 实现核心业务逻辑\n    \"\"\"\n    \n    def __init__(self):\n        pass\n    \n    async def process(self, data: dict) -> dict:\n        \"\"\"处理数据\n        \n        TODO: 实现处理逻辑\n        \"\"\"\n        return data\n"
+    },
+    {
+      "path": "app/utils/__init__.py",
+      "content": "\"\"\"工具函数模块\"\"\"\n"
+    },
+    {
+      "path": "app/utils/helpers.py",
+      "content": "\"\"\"通用工具函数\"\"\"\nfrom typing import Any\nimport json\n\n\ndef to_json(data: Any) -> str:\n    \"\"\"转换为 JSON 字符串\"\"\"\n    return json.dumps(data, ensure_ascii=False, default=str)\n\n\n# TODO: 添加其他工具函数\n"
+    },
+    {
+      "path": "tests/__init__.py",
+      "content": "\"\"\"\n"
+    },
+    {
+      "path": "tests/test_api.py",
+      "content": "\"\"\"API 测试\"\"\"\nfrom fastapi.testclient import TestClient\n\nfrom app.main import app\n\nclient = TestClient(app)\n\n\ndef test_health_check():\n    \"\"\"测试健康检查端点\"\"\"\n    response = client.get(\"/health\")\n    assert response.status_code == 200\n    assert response.json()[\"status\"] == \"healthy\"\n\n\n# TODO: 添加更多测试用例\n"
+    },
+    {
+      "path": ".env.example",
+      "content": "# 环境变量配置\nDEBUG=True\n\n# TODO: 添加其他配置\n"
+    },
+    {
+      "path": "requirements.txt",
+      "content": "fastapi>=0.100.0\nuvicorn[standard]>=0.23.0\npydantic>=2.0.0\npydantic-settings>=2.0.0\npython-dotenv>=1.0.0\nhttpx>=0.24.0\npytest>=7.0.0\n"
+    },
+    {
+      "path": "README.md",
+      "content": "# {{PROJECT_NAME}}\n\n{{PROJECT_DESCRIPTION}}\n\n## 快速开始\n\n```bash\n# 安装依赖\npip install -r requirements.txt\n\n# 启动服务\nuvicorn app.main:app --reload\n```\n\n## API 文档\n\n启动服务后访问：\n- Swagger UI: http://localhost:8000/docs\n- ReDoc: http://localhost:8000/redoc\n\n## 变现方向\n\n{{MONETIZATION}}\n\n## 差异化\n\n{{DIFFERENTIATION}}\n"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "Python CLI Tool",
+  "description": "命令行工具模板",
+  "files": [
+    {
+      "path": "{{PACKAGE_NAME}}/__init__.py",
+      "content": "\"\"\"{{PROJECT_NAME}} - CLI Tool\"\"\"\n__version__ = \"0.1.0\"\n"
+    },
+    {
+      "path": "{{PACKAGE_NAME}}/cli.py",
+      "content": "\"\"\"CLI 入口\n\n{{PROJECT_DESCRIPTION}}\n\"\"\"\nimport typer\nfrom typing import Optional\nfrom rich.console import Console\n\napp = typer.Typer(\n    name=\"{{PROJECT_NAME}}\",\n    help=\"{{PROJECT_DESCRIPTION}}\"\n)\nconsole = Console()\n\n\n@app.command()\ndef run(\n    input_file: str = typer.Argument(..., help=\"输入文件路径\"),\n    output: Optional[str] = typer.Option(None, \"-o\", \"--output\", help=\"输出文件路径\"),\n    verbose: bool = typer.Option(False, \"-v\", \"--verbose\", help=\"详细输出\")\n):\n    \"\"\"执行主要功能\n    \n    TODO: 实现核心逻辑\n    \"\"\"\n    if verbose:\n        console.print(f\"[blue]Processing:[/] {input_file}\")\n    \n    # TODO: 实现处理逻辑\n    console.print(\"[green]Done![/]\")\n\n\n@app.command()\ndef version():\n    \"\"\"显示版本信息\"\"\"\n    console.print(\"{{PROJECT_NAME}} v0.1.0\")\n\n\nif __name__ == \"__main__\":\n    app()\n"
+    },
+    {
+      "path": "{{PACKAGE_NAME}}/core/__init__.py",
+      "content": "\"\"\"核心逻辑模块\"\"\"\n"
+    },
+    {
+      "path": "{{PACKAGE_NAME}}/core/processor.py",
+      "content": "\"\"\"核心处理逻辑\n\n{{CORE_FEATURES}}\n\"\"\"\nfrom typing import Any, Dict\n\n\nclass Processor:\n    \"\"\"核心处理器\n    \n    TODO: 实现核心处理逻辑\n    \"\"\"\n    \n    def __init__(self, config: Dict[str, Any] = None):\n        self.config = config or {}\n    \n    def process(self, data: Any) -> Any:\n        \"\"\"处理数据\n        \n        TODO: 实现处理逻辑\n        \"\"\"\n        return data\n"
+    },
+    {
+      "path": "{{PACKAGE_NAME}}/utils/__init__.py",
+      "content": "\"\"\"工具函数模块\"\"\"\n"
+    },
+    {
+      "path": "{{PACKAGE_NAME}}/utils/helpers.py",
+      "content": "\"\"\"通用工具函数\"\"\"\nimport os\nfrom pathlib import Path\n\n\ndef ensure_dir(path: str) -> Path:\n    \"\"\"确保目录存在\"\"\"\n    p = Path(path)\n    p.mkdir(parents=True, exist_ok=True)\n    return p\n\n\n# TODO: 添加其他工具函数\n"
+    },
+    {
+      "path": "tests/__init__.py",
+      "content": "\"\"\"\n"
+    },
+    {
+      "path": "tests/test_processor.py",
+      "content": "\"\"\"处理器测试\"\"\"\nfrom {{PACKAGE_NAME}}.core.processor import Processor\n\n\ndef test_processor_init():\n    \"\"\"测试处理器初始化\"\"\"\n    processor = Processor()\n    assert processor.config == {}\n\n\n# TODO: 添加更多测试用例\n"
+    },
+    {
+      "path": "pyproject.toml",
+      "content": "[project]\nname = \"{{PROJECT_SLUG}}\"\nversion = \"0.1.0\"\ndescription = \"{{PROJECT_DESCRIPTION}}\"\nreadme = \"README.md\"\nrequires-python = \">=3.10\"\n\n[project.scripts]\n{{PROJECT_SLUG}} = \"{{PACKAGE_NAME}}.cli:app\"\n\n[build-system]\nrequires = [\"setuptools>=61.0\"]\nbuild-backend = \"setuptools.build_meta\"\n"
+    },
+    {
+      "path": "README.md",
+      "content": "# {{PROJECT_NAME}}\n\n{{PROJECT_DESCRIPTION}}\n\n## 安装\n\n```bash\npip install -e .\n```\n\n## 使用\n\n```bash\n{{PROJECT_SLUG}} --help\n{{PROJECT_SLUG}} run <input_file>\n```\n\n## 变现方向\n\n{{MONETIZATION}}\n\n## 差异化\n\n{{DIFFERENTIATION}}\n"
+    }
+  ]
+}

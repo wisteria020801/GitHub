@@ -83,7 +83,7 @@ class ProductHuntCollector:
                         votesCount
                         commentsCount
                         createdAt
-                        featured
+                        featuredAt
                         topics(first: 5) {
                             edges {
                                 node {
@@ -117,7 +117,7 @@ class ProductHuntCollector:
                     votes_count=node.get('votesCount', 0),
                     comments_count=node.get('commentsCount', 0),
                     created_at=self._parse_date(node.get('createdAt')),
-                    featured=node.get('featured', False),
+                    featured=bool(node.get('featuredAt')),
                     topics=topics,
                 )
                 posts.append(post)
@@ -165,7 +165,7 @@ class ProductHuntCollector:
                         votesCount
                         commentsCount
                         createdAt
-                        featured
+                        featuredAt
                         topics(first: 5) {
                             edges {
                                 node {
@@ -199,7 +199,7 @@ class ProductHuntCollector:
                     votes_count=node.get('votesCount', 0),
                     comments_count=node.get('commentsCount', 0),
                     created_at=self._parse_date(node.get('createdAt')),
-                    featured=node.get('featured', False),
+                    featured=bool(node.get('featuredAt')),
                     topics=topics,
                 )
                 posts.append(post)
