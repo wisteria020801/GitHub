@@ -54,6 +54,11 @@ class TelegramCommandBot:
                 description='查看Star最多的项目',
                 callback=self.handle_stars
             ),
+            'forks': CommandHandler(
+                command='/forks',
+                description='查看Fork最多的项目',
+                callback=self.handle_forks
+            ),
             'new': CommandHandler(
                 command='/new',
                 description='查看最新创建的项目',
@@ -64,10 +69,35 @@ class TelegramCommandBot:
                 description='查看今日发现的项目',
                 callback=self.handle_today
             ),
+            'trending': CommandHandler(
+                command='/trending',
+                description='查看增长最快的项目',
+                callback=self.handle_trending
+            ),
+            'source': CommandHandler(
+                command='/source',
+                description='按来源查看项目 (github/hackernews/producthunt)',
+                callback=self.handle_source
+            ),
+            'lang': CommandHandler(
+                command='/lang',
+                description='按语言查看项目',
+                callback=self.handle_language
+            ),
+            'search': CommandHandler(
+                command='/search',
+                description='搜索项目 (如: /search ai)',
+                callback=self.handle_search
+            ),
             'stats': CommandHandler(
                 command='/stats',
                 description='查看系统统计信息',
                 callback=self.handle_stats
+            ),
+            'random': CommandHandler(
+                command='/random',
+                description='随机推荐一个高分项目',
+                callback=self.handle_random
             ),
         }
     
@@ -257,6 +287,176 @@ class TelegramCommandBot:
         
         self.notifier.send_message(stats_text, chat_id=chat_id)
     
+    def handle_forks(self, chat_id: str, text: str):
+        try:
+            limit = int(text.split()[1]) if len(text.split()) > 1 else 5
+            limit = min(limit, 10)
+        except:
+            limit = 5
+        
+        repos = self.db.get_repositories_by_forks(limit=limit)
+        if not repos:
+            self.notifier.send_message("📭 暂无项目数据", chat_id=chat_id)
+            return
+        
+        lines = ["🍴 *Fork 最多的项目*"]
+        for i, repo in enumerate(repos, 1):
+            lines.append(f"{i}. [{repo.full_name}]({repo.html_url}) 🍴{repo.forks} ⭐{repo.stars}")
+            if repo.description:
+                desc = repo.description[:40]
+                if len(repo.description) > 40:
+                    desc += "..."
+                lines.append(f"   _{desc}_")
+        
+        self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+    
+    def handle_trending(self, chat_id: str, text: str):
+        try:
+            limit = int(text.split()[1]) if len(text.split()) > 1 else 5
+            limit = min(limit, 10)
+        except:
+            limit = 5
+        
+        repos = self.db.get_repositories_by_growth(limit=limit)
+        if not repos:
+            self.notifier.send_message("📭 暂无增长数据", chat_id=chat_id)
+            return
+        
+        lines = ["📈 *增长最快的项目*"]
+        for i, (repo, growth) in enumerate(repos, 1):
+            lines.append(f"{i}. [{repo.full_name}]({repo.html_url}) 📈{growth} ⭐{repo.stars}")
+            if repo.description:
+                desc = repo.description[:40]
+                if len(repo.description) > 40:
+                    desc += "..."
+                lines.append(f"   _{desc}_")
+        
+        self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+    
+    def handle_source(self, chat_id: str, text: str):
+        parts = text.split()
+        if len(parts) < 2:
+            sources = self.db.get_available_sources()
+            if sources:
+                lines = ["📂 *可用来源:*"]
+                for s in sources:
+                    lines.append(f"  • {s}")
+                lines.append("\n使用: /source github")
+                self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+            else:
+                self.notifier.send_message("📭 暂无来源数据", chat_id=chat_id)
+            return
+        
+        source = parts[1].lower()
+        try:
+            limit = int(parts[2]) if len(parts) > 2 else 5
+            limit = min(limit, 10)
+        except:
+            limit = 5
+        
+        repos = self.db.get_repositories_by_source(source=source, limit=limit)
+        if not repos:
+            self.notifier.send_message(f"📭 暂无 {source} 来源的项目", chat_id=chat_id)
+            return
+        
+        lines = [f"📂 *{source.upper()} 来源项目*"]
+        for i, repo in enumerate(repos, 1):
+            lines.append(f"{i}. [{repo.full_name}]({repo.html_url}) ⭐{repo.stars}")
+            if repo.description:
+                desc = repo.description[:40]
+                if len(repo.description) > 40:
+                    desc += "..."
+                lines.append(f"   _{desc}_")
+        
+        self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+    
+    def handle_language(self, chat_id: str, text: str):
+        parts = text.split()
+        if len(parts) < 2:
+            languages = self.db.get_available_languages()
+            if languages:
+                lines = ["💻 *可用语言:*"]
+                for lang in languages[:10]:
+                    lines.append(f"  • {lang}")
+                if len(languages) > 10:
+                    lines.append(f"  ... 共 {len(languages)} 种")
+                lines.append("\n使用: /lang python")
+                self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+            else:
+                self.notifier.send_message("📭 暂无语言数据", chat_id=chat_id)
+            return
+        
+        language = parts[1]
+        try:
+            limit = int(parts[2]) if len(parts) > 2 else 5
+            limit = min(limit, 10)
+        except:
+            limit = 5
+        
+        repos = self.db.get_repositories_by_language(language=language, limit=limit)
+        if not repos:
+            self.notifier.send_message(f"📭 暂无 {language} 项目", chat_id=chat_id)
+            return
+        
+        lines = [f"💻 *{language} 项目*"]
+        for i, repo in enumerate(repos, 1):
+            lines.append(f"{i}. [{repo.full_name}]({repo.html_url}) ⭐{repo.stars}")
+            if repo.description:
+                desc = repo.description[:40]
+                if len(repo.description) > 40:
+                    desc += "..."
+                lines.append(f"   _{desc}_")
+        
+        self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+    
+    def handle_search(self, chat_id: str, text: str):
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2:
+            self.notifier.send_message("🔍 请输入搜索关键词\n用法: /search ai", chat_id=chat_id)
+            return
+        
+        keyword = parts[1]
+        repos = self.db.search_repositories(keyword=keyword, limit=10)
+        if not repos:
+            self.notifier.send_message(f"🔍 未找到包含 '{keyword}' 的项目", chat_id=chat_id)
+            return
+        
+        lines = [f"🔍 *搜索结果: {keyword}*"]
+        for i, repo in enumerate(repos, 1):
+            lines.append(f"{i}. [{repo.full_name}]({repo.html_url}) ⭐{repo.stars}")
+            if repo.description:
+                desc = repo.description[:40]
+                if len(repo.description) > 40:
+                    desc += "..."
+                lines.append(f"   _{desc}_")
+        
+        self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+    
+    def handle_random(self, chat_id: str, text: str):
+        import random
+        
+        projects = self.db.get_top_scored_repositories(limit=20)
+        if not projects:
+            self.notifier.send_message("📭 暂无项目数据", chat_id=chat_id)
+            return
+        
+        repo, score, analysis = random.choice(projects)
+        
+        lines = ["🎲 *随机推荐*"]
+        lines.append(f"🌟 *{score.total_score:.0f}分* [{repo.full_name}]({repo.html_url})")
+        lines.append(f"⭐ {repo.stars} | 🍴 {repo.forks} | 💻 {repo.language or '未知'}")
+        
+        if repo.description:
+            lines.append(f"\n📝 {repo.description}")
+        
+        if analysis and analysis.problem_solved:
+            lines.append(f"\n🎯 *解决问题:* {analysis.problem_solved[:100]}")
+        
+        if analysis and analysis.monetization_potential:
+            lines.append(f"\n💰 *变现潜力:* {analysis.monetization_potential[:100]}")
+        
+        self.notifier.send_message("\n".join(lines), chat_id=chat_id)
+    
     def _get_help_text(self) -> str:
         help_text = "🤖 *GitHub 趋势雷达 - 命令帮助*\n\n"
         help_text += "以下是可用的命令：\n\n"
@@ -267,8 +467,14 @@ class TelegramCommandBot:
         help_text += "\n🎯 *使用示例：*\n"
         help_text += "/top 10 - 查看评分最高的10个项目\n"
         help_text += "/stars 5 - 查看Star最多的5个项目\n"
+        help_text += "/forks 5 - 查看Fork最多的5个项目\n"
         help_text += "/new - 查看最新创建的项目\n"
         help_text += "/today - 查看今日发现的项目\n"
+        help_text += "/trending - 查看增长最快的项目\n"
+        help_text += "/source github - 查看GitHub来源项目\n"
+        help_text += "/lang python - 查看Python项目\n"
+        help_text += "/search ai - 搜索包含ai的项目\n"
+        help_text += "/random - 随机推荐一个高分项目\n"
         help_text += "/stats - 查看系统统计信息"
         
         return help_text

@@ -23,9 +23,18 @@
             </select>
           </div>
           <div class="col-md-2">
+            <select class="form-select" name="language">
+              <option value="">全部语言</option>
+              {% for lang in languages %}
+              <option value="{{ lang }}" {% if language == lang %}selected{% endif %}>{{ lang }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
             <select class="form-select" name="sort">
               <option value="score" {% if sort_by == "score" %}selected{% endif %}>总分</option>
               <option value="stars" {% if sort_by == "stars" %}selected{% endif %}>Stars</option>
+              <option value="forks" {% if sort_by == "forks" %}selected{% endif %}>Forks</option>
               <option value="hot" {% if sort_by == "hot" %}selected{% endif %}>增长</option>
               <option value="new" {% if sort_by == "new" %}selected{% endif %}>创建时间</option>
               <option value="updated" {% if sort_by == "updated" %}selected{% endif %}>更新时间</option>
@@ -61,6 +70,9 @@
       </a>
       <a href="?sort=stars&order=desc" class="btn btn-outline-warning {% if sort_by == 'stars' and order == 'desc' %}active{% endif %}">
         ⭐ 热门项目
+      </a>
+      <a href="?sort=forks&order=desc" class="btn btn-outline-warning {% if sort_by == 'forks' and order == 'desc' %}active{% endif %}">
+        🍴 Fork最多
       </a>
       <a href="?sort=hot&order=desc" class="btn btn-outline-info {% if sort_by == 'hot' and order == 'desc' %}active{% endif %}">
         📈 增长最快

@@ -83,7 +83,7 @@ def get_available_sources() -> List[str]:
         conn.close()
 
 
-def build_where_clause(query: Optional[str], source: Optional[str], conn: sqlite3.Connection) -> Tuple[str, List]:
+def build_where_clause(query: Optional[str], source: Optional[str], language: Optional[str], conn: sqlite3.Connection) -> Tuple[str, List]:
     where = []
     params: List = []
 
@@ -110,6 +110,10 @@ def build_where_clause(query: Optional[str], source: Optional[str], conn: sqlite
         where.append("r.source = ?")
         params.append(source)
 
+    if language:
+        where.append("r.language = ?")
+        params.append(language)
+
     if where:
         return "WHERE " + " AND ".join(where), params
     return "", params
@@ -121,6 +125,7 @@ def build_order_clause(sort_by: str, order: str) -> str:
     mapping = {
         "score": f"COALESCE(ls.total_score, 0) {order}",
         "stars": f"COALESCE(r.stars, 0) {order}",
+        "forks": f"COALESCE(r.forks, 0) {order}",
         "hot": f"COALESCE(ls.score_growth, 0) {order}",
         "new": f"r.created_at {order}",
         "updated": f"r.pushed_at {order}",
@@ -129,9 +134,26 @@ def build_order_clause(sort_by: str, order: str) -> str:
     return "ORDER BY " + mapping.get(sort_by, f"COALESCE(ls.total_score, 0) DESC")
 
 
+def get_available_languages() -> List[str]:
+    conn = get_conn()
+    try:
+        cur = conn.execute(
+            """
+            SELECT DISTINCT language
+            FROM repositories
+            WHERE language IS NOT NULL AND TRIM(language) != ''
+            ORDER BY language ASC
+            """
+        )
+        return [row["language"] for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 def list_repositories(
     query: Optional[str] = None,
     source: Optional[str] = None,
+    language: Optional[str] = None,
     sort_by: str = "score",
     order: str = "desc",
     page: int = 1,
@@ -140,7 +162,7 @@ def list_repositories(
     conn = get_conn()
     try:
         source_sql = _source_column_sql(conn)
-        where_sql, params = build_where_clause(query, source, conn)
+        where_sql, params = build_where_clause(query, source, language, conn)
 
         base_sql = f"""
             WITH latest_scores AS ( 

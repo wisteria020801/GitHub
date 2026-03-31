@@ -380,3 +380,62 @@ class DatabaseManager:
                 WHERE DATE(first_seen_at) = DATE('now')
             ''')
             return cursor.fetchone()[0]
+
+    def get_repositories_by_forks(self, limit: int = 10) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM repositories ORDER BY forks DESC LIMIT ?', (limit,))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_repositories_by_growth(self, limit: int = 10) -> List[Tuple[Repository, int]]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT r.*, 
+                    (SELECT COUNT(*) FROM star_snapshots s WHERE s.repo_id = r.id) as snapshot_count
+                FROM repositories r
+                WHERE r.id IN (SELECT DISTINCT repo_id FROM star_snapshots)
+                ORDER BY snapshot_count DESC
+                LIMIT ?
+            ''', (limit,))
+            results = []
+            for row in cursor.fetchall():
+                repo = Repository.from_dict(dict(row))
+                growth = row['snapshot_count']
+                results.append((repo, growth))
+            return results
+
+    def get_repositories_by_source(self, source: str, limit: int = 10) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM repositories WHERE source = ? ORDER BY stars DESC LIMIT ?', (source, limit))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_repositories_by_language(self, language: str, limit: int = 10) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM repositories WHERE language = ? ORDER BY stars DESC LIMIT ?', (language, limit))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]
+
+    def get_available_sources(self) -> List[str]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT DISTINCT source FROM repositories WHERE source IS NOT NULL')
+            return [row[0] for row in cursor.fetchall()]
+
+    def get_available_languages(self) -> List[str]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT DISTINCT language FROM repositories WHERE language IS NOT NULL ORDER BY language')
+            return [row[0] for row in cursor.fetchall()]
+
+    def search_repositories(self, keyword: str, limit: int = 10) -> List[Repository]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM repositories 
+                WHERE full_name LIKE ? OR description LIKE ?
+                ORDER BY stars DESC
+                LIMIT ?
+            ''', (f'%{keyword}%', f'%{keyword}%', limit))
+            return [Repository.from_dict(dict(row)) for row in cursor.fetchall()]

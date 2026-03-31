@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Flask, abort, render_template, request, url_for, redirect, flash, jsonify, Response
 
 from .db import (
-    get_repository_detail, get_stats, get_available_sources, list_repositories,
+    get_repository_detail, get_stats, get_available_sources, get_available_languages, list_repositories,
     get_category_stats, get_repos_by_category, compare_repositories, get_available_categories,
     categorize_by_topics, get_all_repos,
     add_favorite, remove_favorite, is_favorite, get_favorite_repos, get_favorites_count, update_favorite_note
@@ -27,6 +27,7 @@ app.jinja_env.filters["categorize"] = categorize_by_topics
 def index():
     q = request.args.get("q", "").strip() or None
     source = request.args.get("source", "").strip() or None
+    language = request.args.get("language", "").strip() or None
     sort_by = request.args.get("sort", "score").strip() or "score"
     order = request.args.get("order", "desc").strip() or "desc"
     page = int(request.args.get("page", 1))
@@ -35,6 +36,7 @@ def index():
     items, total = list_repositories(
         query=q,
         source=source,
+        language=language,
         sort_by=sort_by,
         order=order,
         page=page,
@@ -43,6 +45,7 @@ def index():
 
     total_pages = max((total + page_size - 1) // page_size, 1)
     sources = get_available_sources()
+    languages = get_available_languages()
 
     return render_template(
         "index.html",
@@ -53,9 +56,11 @@ def index():
         total_pages=total_pages,
         q=q or "",
         source=source or "",
+        language=language or "",
         sort_by=sort_by,
         order=order,
         sources=sources,
+        languages=languages,
     )
 
 
