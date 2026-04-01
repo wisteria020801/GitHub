@@ -245,20 +245,34 @@ class DatabaseManager:
             return None
 
     def get_top_scored_repositories(
-        self, min_score: float = 70, limit: int = 10
+        self, min_score: float = 70, limit: int = 10, include_notified: bool = False
     ) -> List[Tuple[Repository, Score, AnalysisResult]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT r.*, s.*, a.*
-                FROM repositories r
-                JOIN scores s ON r.id = s.repo_id
-                JOIN analysis_results a ON r.id = a.repo_id
-                LEFT JOIN telegram_messages t ON r.id = t.repo_id
-                WHERE s.total_score >= ? AND t.id IS NULL
-                ORDER BY s.total_score DESC
-                LIMIT ?
-            ''', (min_score, limit))
+            
+            if include_notified:
+                # 包含已通知的项目
+                cursor.execute('''
+                    SELECT r.*, s.*, a.*
+                    FROM repositories r
+                    JOIN scores s ON r.id = s.repo_id
+                    JOIN analysis_results a ON r.id = a.repo_id
+                    WHERE s.total_score >= ?
+                    ORDER BY s.total_score DESC
+                    LIMIT ?
+                ''', (min_score, limit))
+            else:
+                # 只返回未通知的项目
+                cursor.execute('''
+                    SELECT r.*, s.*, a.*
+                    FROM repositories r
+                    JOIN scores s ON r.id = s.repo_id
+                    JOIN analysis_results a ON r.id = a.repo_id
+                    LEFT JOIN telegram_messages t ON r.id = t.repo_id
+                    WHERE s.total_score >= ? AND t.id IS NULL
+                    ORDER BY s.total_score DESC
+                    LIMIT ?
+                ''', (min_score, limit))
             
             results = []
             for row in cursor.fetchall():

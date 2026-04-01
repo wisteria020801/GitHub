@@ -31,6 +31,8 @@ class TelegramCommandBot:
         self.running = False
         self.thread = None
         self.commands = self._register_commands()
+        # 设置Telegram命令菜单
+        self._set_commands_menu()
     
     def _register_commands(self) -> Dict[str, CommandHandler]:
         return {
@@ -184,7 +186,7 @@ class TelegramCommandBot:
         except:
             limit = 5
         
-        projects = self.db.get_top_scored_repositories(limit=limit)
+        projects = self.db.get_top_scored_repositories(limit=limit, include_notified=True)
         if not projects:
             self.notifier.send_message("📭 暂无评分项目", chat_id=chat_id)
             return
@@ -478,3 +480,31 @@ class TelegramCommandBot:
         help_text += "/stats - 查看系统统计信息"
         
         return help_text
+    
+    def _set_commands_menu(self):
+        """设置Telegram命令菜单"""
+        url = f"{self.api_base}/setMyCommands"
+        
+        commands = []
+        for cmd, handler in self.commands.items():
+            commands.append({
+                "command": cmd,
+                "description": handler.description
+            })
+        
+        payload = {
+            "commands": commands
+        }
+        
+        try:
+            response = requests.post(url, json=payload, timeout=15)
+            if response.ok:
+                data = response.json()
+                if data.get('ok'):
+                    logger.info("Telegram command menu set successfully")
+                else:
+                    logger.error(f"Failed to set command menu: {data.get('description')}")
+            else:
+                logger.error(f"Telegram API error: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.error(f"Error setting command menu: {e}")
