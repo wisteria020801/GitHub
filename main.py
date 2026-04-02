@@ -301,7 +301,8 @@ class GitHubRadar:
         )
         
         if not top_projects:
-            logger.info("No projects meet notification threshold")
+            logger.info("No new projects meet notification threshold")
+            self.notifier.notify_no_new_projects()
             return 0
         
         notified_count = 0

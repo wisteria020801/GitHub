@@ -33,7 +33,8 @@ class TelegramNotifier:
         text: str,
         chat_id: Optional[str] = None,
         parse_mode: str = "Markdown",
-        disable_web_page_preview: bool = True
+        disable_web_page_preview: bool = True,
+        prefer_channel: bool = False
     ) -> Optional[int]:
         elapsed = time.time() - self._last_message_time
         if elapsed < self.MIN_MESSAGE_INTERVAL:
@@ -41,23 +42,21 @@ class TelegramNotifier:
             logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f}s")
             time.sleep(sleep_time)
         
-        # 尝试的chat_id列表
         chat_ids_to_try = []
         
-        # 首先尝试提供的chat_id
         if chat_id:
             chat_ids_to_try.append(chat_id)
-        
-        # 然后尝试配置中的chat_id
-        if self.config.chat_id:
-            chat_ids_to_try.append(self.config.chat_id)
-        
-        # 最后尝试配置中的channel_id
-        if self.config.channel_id:
+        elif prefer_channel and self.config.channel_id:
             chat_ids_to_try.append(self.config.channel_id)
+            if self.config.chat_id:
+                chat_ids_to_try.append(self.config.chat_id)
+        else:
+            if self.config.channel_id:
+                chat_ids_to_try.append(self.config.channel_id)
+            if self.config.chat_id:
+                chat_ids_to_try.append(self.config.chat_id)
         
-        # 去重
-        chat_ids_to_try = list(set(chat_ids_to_try))
+        chat_ids_to_try = list(dict.fromkeys(chat_ids_to_try))
         
         for target_chat_id in chat_ids_to_try:
             url = f"{self.api_base}/sendMessage"
@@ -150,7 +149,7 @@ class TelegramNotifier:
         projects: List[tuple]
     ) -> str:
         if not projects:
-            return "📭 今日暂无高分项目发现"
+            return "📭 *今日暂无新的高分项目发现*\n\n💡 系统正常运行中，继续监控中..."
         
         lines = ["📊 *今日 GitHub 高分项目速报*\n"]
         
@@ -186,19 +185,8 @@ class TelegramNotifier:
         else:
             text = self.format_project_card(repo, score, analysis)
         
-        # 先尝试使用chat_id
-        msg_id = self.send_message(text)
-        if msg_id:
-            return msg_id
-        
-        # 如果失败，尝试使用channel_id
-        if self.config.channel_id:
-            logger.info("Trying channel_id instead of chat_id")
-            msg_id = self.send_message(text, chat_id=self.config.channel_id)
-            if msg_id:
-                return msg_id
-        
-        return None
+        msg_id = self.send_message(text, prefer_channel=True)
+        return msg_id
 
     def notify_batch(
         self,
@@ -209,7 +197,7 @@ class TelegramNotifier:
         
         if send_summary and len(projects) > 3:
             summary = self.format_daily_summary(projects)
-            msg_id = self.send_message(summary)
+            msg_id = self.send_message(summary, prefer_channel=True)
             if msg_id:
                 message_ids.append(msg_id)
         else:
@@ -219,6 +207,10 @@ class TelegramNotifier:
                     message_ids.append(msg_id)
         
         return message_ids
+
+    def notify_no_new_projects(self) -> Optional[int]:
+        text = "📭 *今日暂无新的高分项目发现*\n\n💡 系统正常运行中，继续监控中...\n\n📊 使用 /top 查看历史高分项目"
+        return self.send_message(text, prefer_channel=True)
 
     def _get_score_emoji(self, score: float) -> str:
         if score >= 80:
