@@ -211,6 +211,58 @@ class TelegramNotifier:
     def notify_no_new_projects(self) -> Optional[int]:
         text = "📭 *今日暂无新的高分项目发现*\n\n💡 系统正常运行中，继续监控中...\n\n📊 使用 /top 查看历史高分项目"
         return self.send_message(text, prefer_channel=True)
+    
+    def format_growth_card(self, repo: Repository, growth: int, growth_rate: float) -> str:
+        stars_str = format_number(repo.stars)
+        growth_str = format_number(growth)
+        
+        card = f"""📈 *{repo.full_name}*
+📊 *增长速度快* | ⬆️ +{growth_str} stars
+📈 *增长率: {growth_rate:.1f}%* | ⭐ {stars_str}
+
+📝 {repo.description or '暂无描述'}
+
+🔗 [查看项目]({repo.html_url})
+"""
+        return card
+    
+    def notify_fast_growing_projects(self, projects: list) -> List[int]:
+        """通知增长速度快的项目
+        
+        Args:
+            projects: 项目列表，包含 (Repository, 增长数, 增长率) 元组
+            
+        Returns:
+            消息ID列表
+        """
+        message_ids = []
+        
+        if not projects:
+            return message_ids
+        
+        # 发送增长项目摘要
+        summary_lines = ["📈 *快速增长项目速报*\n"]
+        for i, (repo, growth, growth_rate) in enumerate(projects[:5], 1):
+            stars_str = format_number(repo.stars)
+            growth_str = format_number(growth)
+            summary_lines.append(
+                f"{i}. 📊 *{growth_rate:.1f}%* +{growth_str} stars "
+                f"[{repo.full_name}]({repo.html_url}) "
+                f"⭐{stars_str}"
+            )
+        summary = "\n".join(summary_lines)
+        msg_id = self.send_message(summary, prefer_channel=True)
+        if msg_id:
+            message_ids.append(msg_id)
+        
+        # 发送详细卡片
+        for repo, growth, growth_rate in projects[:3]:
+            text = self.format_growth_card(repo, growth, growth_rate)
+            msg_id = self.send_message(text, prefer_channel=True)
+            if msg_id:
+                message_ids.append(msg_id)
+        
+        return message_ids
 
     def _get_score_emoji(self, score: float) -> str:
         if score >= 80:

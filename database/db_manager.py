@@ -418,6 +418,39 @@ class DatabaseManager:
                 growth = row['snapshot_count']
                 results.append((repo, growth))
             return results
+    
+    def get_fastest_growing_repositories(self, days: int = 7, limit: int = 10) -> List[Tuple[Repository, int, float]]:
+        """获取增长速度最快的项目
+        
+        Args:
+            days: 统计天数
+            limit: 返回数量
+            
+        Returns:
+            项目列表，包含 (Repository, 增长数, 增长率) 元组
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT r.*
+                FROM repositories r
+                WHERE r.id IN (SELECT DISTINCT repo_id FROM star_snapshots)
+                ORDER BY r.stars DESC
+                LIMIT 100
+            ''')
+            
+            results = []
+            for row in cursor.fetchall():
+                repo = Repository.from_dict(dict(row))
+                growth, current_stars = self.get_star_growth(repo.id, days)
+                
+                if current_stars > 0 and growth > 0:
+                    growth_rate = (growth / current_stars) * 100
+                    results.append((repo, growth, growth_rate))
+            
+            # 按增长率排序
+            results.sort(key=lambda x: x[2], reverse=True)
+            return results[:limit]
 
     def get_repositories_by_source(self, source: str, limit: int = 10) -> List[Repository]:
         with self._get_connection() as conn:
