@@ -209,7 +209,20 @@ class TelegramNotifier:
         return message_ids
 
     def notify_no_new_projects(self) -> Optional[int]:
-        text = "📭 *今日暂无新的高分项目发现*\n\n💡 系统正常运行中，继续监控中...\n\n📊 使用 /top 查看历史高分项目"
+        from datetime import datetime
+        now = datetime.now().strftime('%Y-%m-%d %H:%M')
+        text = f"""📭 *今日暂无新的高分项目发现*
+
+🕐 扫描时间: {now}
+💡 系统正常运行中，继续监控中...
+
+📋 *你可以试试这些命令：*
+• `/top` — 查看历史高分项目排行
+• `/stars` — 查看Star最多的项目
+• `/trending` — 查看增长最快的新项目
+• `/new` — 查看最新收录的项目
+• `/random` — 随机推荐一个高分项目
+• `/stats` — 查看系统统计信息"""
         return self.send_message(text, prefer_channel=True)
     
     def format_growth_card(self, repo: Repository, growth: int, growth_rate: float) -> str:
