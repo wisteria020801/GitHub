@@ -452,6 +452,17 @@ class DatabaseManager:
             results.sort(key=lambda x: x[2], reverse=True)
             return results[:limit]
 
+    def get_notified_repo_ids(self) -> List[int]:
+        """获取已通知的项目ID列表
+        
+        Returns:
+            已通知的项目ID列表
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT DISTINCT repo_id FROM telegram_messages WHERE status = "sent"')
+            return [row[0] for row in cursor.fetchall()]
+
     def get_repositories_by_source(self, source: str, limit: int = 10) -> List[Repository]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

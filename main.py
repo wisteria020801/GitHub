@@ -295,6 +295,7 @@ class GitHubRadar:
     def _notify_top_projects(self) -> int:
         logger.info("Notifying top projects...")
         
+        # 1. 首先尝试推送高分项目
         top_projects = self.db.get_top_scored_repositories(
             min_score=config.scoring.min_score_to_notify,
             limit=config.scoring.max_results_per_day
@@ -317,22 +318,48 @@ class GitHubRadar:
                 except Exception as e:
                     logger.error(f"Failed to notify {repo.full_name}: {e}")
             
-            logger.info(f"Notified {notified_count} projects")
+            logger.info(f"Notified {notified_count} high-score projects")
             return notified_count
-        else:
-            logger.info("No new projects meet notification threshold")
+        
+        # 2. 没有高分项目，尝试推送增长速度快的项目（排除已通知的）
+        logger.info("No high-score projects, checking for fast-growing projects...")
+        fast_growing_projects = self.db.get_fastest_growing_repositories(days=7, limit=5)
+        
+        # 过滤掉已经通知过的项目
+        notified_repo_ids = self.db.get_notified_repo_ids()
+        unnotified_fast_growing = [
+            (repo, growth, growth_rate) 
+            for repo, growth, growth_rate in fast_growing_projects 
+            if repo.id not in notified_repo_ids
+        ]
+        
+        if unnotified_fast_growing:
+            logger.info(f"Found {len(unnotified_fast_growing)} unnotified fast growing projects")
+            msg_ids = self.notifier.notify_fast_growing_projects(unnotified_fast_growing)
             
-            # 尝试推送增长速度快的项目
-            fast_growing_projects = self.db.get_fastest_growing_repositories(days=7, limit=5)
-            if fast_growing_projects:
-                logger.info(f"Found {len(fast_growing_projects)} fast growing projects")
-                msg_ids = self.notifier.notify_fast_growing_projects(fast_growing_projects)
-                logger.info(f"Notified {len(msg_ids)} fast growing projects")
-                return len(msg_ids)
-            else:
-                # 没有增长项目，发送无新项目通知
-                self.notifier.notify_no_new_projects()
-                return 0
+            # 记录通知
+            for repo, growth, growth_rate in unnotified_fast_growing:
+                for msg_id in msg_ids:
+                    if msg_id:
+                        telegram_msg = TelegramMessage(
+                            repo_id=repo.id,
+                            message_id=msg_id,
+                            status='sent'
+                        )
+                        self.db.insert_telegram_message(telegram_msg)
+            
+            logger.info(f"Notified {len(msg_ids)} fast growing projects")
+            return len(msg_ids)
+        
+        # 3. 都没有，发送无新项目通知（确保一定会发送）
+        logger.info("No new projects to notify, sending status message...")
+        msg_id = self.notifier.notify_no_new_projects()
+        if msg_id:
+            logger.info("Sent 'no new projects' notification")
+            return 1
+        else:
+            logger.error("Failed to send 'no new projects' notification!")
+            return 0
 
 
 def main():
