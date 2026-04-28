@@ -1,4 +1,5 @@
 import requests
+import re
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
@@ -21,10 +22,30 @@ class HFModel:
     url: str
     description: Optional[str] = None
     source: str = "huggingface"
+    card_data: Dict[str, Any] = None
 
 
 class HuggingFaceCollector:
     API_BASE = "https://huggingface.co/api"
+    
+    KNOWN_GITHUB_ORGS = {
+        'deepseek-ai': 'deepseek-ai',
+        'black-forest-labs': 'black-forest-labs',
+        'stabilityai': 'Stability-AI',
+        'meta-llama': 'meta-llama',
+        'openai': 'openai',
+        'google': 'google',
+        'microsoft': 'microsoft',
+        'facebook': 'facebookresearch',
+        'anthropic': 'anthropics',
+        'mistralai': 'mistralai',
+        'bigcode-project': 'bigcode-project',
+        'open-mmlm': 'open-mmlab',
+        'THUDM': 'THUDM',
+        'Qwen': 'QwenLM',
+        'baichuan-inc': 'baichuan-inc',
+        '01-ai': '01-ai',
+    }
     
     def __init__(self):
         self.session = requests.Session()
@@ -87,7 +108,8 @@ class HuggingFaceCollector:
                     tags=tags,
                     created_at=created_at,
                     url=url,
-                    description=item.get('pipeline_tag', '')
+                    description=item.get('pipeline_tag', ''),
+                    card_data=item.get('cardData', {})
                 )
                 models.append(model)
             
@@ -129,7 +151,8 @@ class HuggingFaceCollector:
                     tags=item.get('tags', []),
                     created_at=None,
                     url=url,
-                    description=item.get('pipeline_tag', '')
+                    description=item.get('pipeline_tag', ''),
+                    card_data=item.get('cardData', {})
                 )
                 spaces.append(space)
             
@@ -141,7 +164,31 @@ class HuggingFaceCollector:
             return []
     
     def extract_github_repo(self, model: HFModel) -> Optional[str]:
+        # 1. 检查tags中的github:前缀
         for tag in model.tags:
             if tag.startswith('github:'):
                 return tag[7:]
+        
+        # 2. 检查card_data中的github链接
+        if model.card_data:
+            # 检查homepage
+            homepage = model.card_data.get('homepage', '')
+            if homepage and 'github.com' in homepage:
+                match = re.search(r'github\.com/([^/]+/[^/]+)', homepage)
+                if match:
+                    return match.group(1).rstrip('/')
+            
+            # 检查repository
+            repo_url = model.card_data.get('repo', '') or model.card_data.get('repository', '')
+            if repo_url and 'github.com' in repo_url:
+                match = re.search(r'github\.com/([^/]+/[^/]+)', repo_url)
+                if match:
+                    return match.group(1).rstrip('/')
+        
+        # 3. 基于已知组织映射推断
+        if model.author in self.KNOWN_GITHUB_ORGS:
+            github_org = self.KNOWN_GITHUB_ORGS[model.author]
+            model_name = model.model_id.split('/')[-1]
+            return f"{github_org}/{model_name}"
+        
         return None

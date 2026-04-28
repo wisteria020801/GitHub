@@ -250,7 +250,8 @@ class GitHubRadar:
                 result = self.collector.search_trending_repositories(
                     days=7,
                     min_stars=100,
-                    max_results=10
+                    max_results=10,
+                    topics=[topic]
                 )
                 for repo in result.repositories:
                     existing = self.db.get_repository_by_github_id(repo.github_id)
@@ -321,6 +322,20 @@ class GitHubRadar:
                                     repo.id = repo_id
                                     collected += 1
                                     self._save_star_snapshot(repo)
+                        else:
+                            # GitHub仓库不存在，尝试搜索
+                            author = model.model_id.split('/')[0] if '/' in model.model_id else ''
+                            search_name = model.model_id.split('/')[-1] if '/' in model.model_id else model.model_id
+                            if author:
+                                search_repo = self._search_github_repo(author, search_name)
+                                if search_repo:
+                                    existing = self.db.get_repository_by_github_id(search_repo.github_id)
+                                    if not existing:
+                                        repo_id = self.db.insert_repository(search_repo)
+                                        if repo_id:
+                                            search_repo.id = repo_id
+                                            collected += 1
+                                            self._save_star_snapshot(search_repo)
                     except Exception as e:
                         logger.warning(f"Failed to process HF model {model.model_id}: {e}")
                 else:
@@ -330,6 +345,23 @@ class GitHubRadar:
         
         logger.info(f"Collected {collected} repos from Hugging Face")
         return collected
+
+    def _search_github_repo(self, author: str, name: str) -> Optional[Repository]:
+        try:
+            url = f'{self.collector.config.api_base_url}/search/repositories'
+            params = {
+                'q': f'{name} org:{author}',
+                'sort': 'stars',
+                'order': 'desc',
+                'per_page': 5
+            }
+            data = self.collector._make_request(url, params)
+            items = data.get('items', [])
+            if items:
+                return self.collector._parse_repository(items[0])
+        except Exception as e:
+            logger.warning(f"Failed to search GitHub for {author}/{name}: {e}")
+        return None
 
     def _collect_repositories(self) -> Tuple[int, int]:
         logger.info("Collecting repositories from GitHub...")
@@ -427,15 +459,31 @@ class GitHubRadar:
     def _notify_top_projects(self) -> int:
         logger.info("Notifying top projects...")
         
-        # 1. 首先尝试推送高分项目 (>=60分)
+        # 1. 首先尝试推送近期新建的高分项目 (>=60分, 30天内创建)
         top_projects = self.db.get_top_scored_repositories(
             min_score=60,
-            limit=config.scoring.max_results_per_day
+            limit=5,
+            max_age_days=30
         )
         
+        # 2. 如果没有近期新建项目，放宽到不限年龄但要求更高分数 (>=75分)
+        if not top_projects:
+            top_projects = self.db.get_top_scored_repositories(
+                min_score=75,
+                limit=3
+            )
+        
         if top_projects:
+            # 先发摘要
+            if len(top_projects) > 1:
+                summary = self.notifier.format_daily_summary(top_projects)
+                msg_id = self.notifier.send_message(summary, prefer_channel=True)
+                if msg_id:
+                    logger.info("Sent daily summary")
+            
+            # 再发前3个详细卡片
             notified_count = 0
-            for repo, score, analysis in top_projects:
+            for repo, score, analysis in top_projects[:3]:
                 try:
                     msg_id = self.notifier.notify_project(repo, score, analysis)
                     if msg_id:
@@ -449,6 +497,16 @@ class GitHubRadar:
                         logger.info(f"Notified {repo.full_name} (score: {score.total_score})")
                 except Exception as e:
                     logger.error(f"Failed to notify {repo.full_name}: {e}")
+            
+            # 剩余项目只记录通知但不发详细卡片
+            for repo, score, analysis in top_projects[3:]:
+                telegram_msg = TelegramMessage(
+                    repo_id=repo.id,
+                    message_id=0,
+                    status='sent_summary'
+                )
+                self.db.insert_telegram_message(telegram_msg)
+                notified_count += 1
             
             logger.info(f"Notified {notified_count} high-score projects")
             return notified_count

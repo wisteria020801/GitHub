@@ -43,8 +43,8 @@ class DatabaseConfig:
 
 @dataclass
 class ScoringConfig:
-    min_score_to_notify: int = 70
-    max_results_per_day: int = 10
+    min_score_to_notify: int = 60
+    max_results_per_day: int = 5
 
 
 @dataclass
@@ -94,8 +94,8 @@ class Config:
                 path=os.getenv('DB_PATH', 'github_radar.db'),
             ),
             scoring=ScoringConfig(
-                min_score_to_notify=int(os.getenv('MIN_SCORE_TO_NOTIFY', '70')),
-                max_results_per_day=int(os.getenv('MAX_RESULTS_PER_DAY', '10')),
+                min_score_to_notify=int(os.getenv('MIN_SCORE_TO_NOTIFY', '60')),
+                max_results_per_day=int(os.getenv('MAX_RESULTS_PER_DAY', '5')),
             ),
             system=SystemConfig(
                 scan_interval_minutes=int(os.getenv('SCAN_INTERVAL', '240')),

@@ -349,5 +349,6 @@ class LLMAnalyzer:
             monetization_potential=llm_result.monetization_potential,
             differentiation_ideas=llm_result.differentiation_ideas,
             raw_llm_response=llm_result.raw_response,
-            analyzed_at=datetime.now()
+            analyzed_at=datetime.now(),
+            is_fallback=llm_result.is_fallback
         )

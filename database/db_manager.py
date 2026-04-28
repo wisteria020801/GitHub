@@ -68,6 +68,7 @@ class DatabaseManager:
                     differentiation_ideas TEXT,
                     raw_llm_response TEXT,
                     analyzed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    is_fallback INTEGER DEFAULT 0,
                     FOREIGN KEY (repo_id) REFERENCES repositories(id)
                 )
             ''')
@@ -113,8 +114,17 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_repos_stars ON repositories(stars)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_scores_total ON scores(total_score)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_snapshots_repo_date ON star_snapshots(repo_id, snapshot_at)')
+            
+            self._run_migrations(cursor)
 
             logger.info(f"Database initialized at {self.db_path}")
+
+    def _run_migrations(self, cursor):
+        try:
+            cursor.execute("SELECT is_fallback FROM analysis_results LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE analysis_results ADD COLUMN is_fallback INTEGER DEFAULT 0")
+            logger.info("Migration: added is_fallback column to analysis_results")
 
     def insert_repository(self, repo: Repository) -> int:
         with self._get_connection() as conn:
@@ -200,13 +210,14 @@ class DatabaseManager:
                 INSERT INTO analysis_results
                 (repo_id, problem_solved, target_audience, growth_reason,
                  copy_difficulty, monetization_potential, differentiation_ideas,
-                 raw_llm_response, analyzed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 raw_llm_response, analyzed_at, is_fallback)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 result.repo_id, result.problem_solved, result.target_audience,
                 result.growth_reason, result.copy_difficulty, result.monetization_potential,
                 result.differentiation_ideas_json, result.raw_llm_response,
-                result.analyzed_at or datetime.now()
+                result.analyzed_at or datetime.now(),
+                1 if result.is_fallback else 0
             ))
             return cursor.lastrowid
 
@@ -245,34 +256,38 @@ class DatabaseManager:
             return None
 
     def get_top_scored_repositories(
-        self, min_score: float = 70, limit: int = 10, include_notified: bool = False
+        self, min_score: float = 70, limit: int = 10, include_notified: bool = False,
+        max_age_days: int = 0
     ) -> List[Tuple[Repository, Score, AnalysisResult]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
+            age_filter = ""
+            age_params = []
+            if max_age_days > 0:
+                age_filter = f"AND r.created_at >= datetime('now', '-{max_age_days} days')"
+            
             if include_notified:
-                # 包含已通知的项目
-                cursor.execute('''
+                cursor.execute(f'''
                     SELECT r.*, s.*, a.*
                     FROM repositories r
                     JOIN scores s ON r.id = s.repo_id
                     JOIN analysis_results a ON r.id = a.repo_id
-                    WHERE s.total_score >= ?
+                    WHERE s.total_score >= ? {age_filter}
                     ORDER BY s.total_score DESC
                     LIMIT ?
-                ''', (min_score, limit))
+                ''', (min_score, *age_params, limit))
             else:
-                # 只返回未通知的项目
-                cursor.execute('''
+                cursor.execute(f'''
                     SELECT r.*, s.*, a.*
                     FROM repositories r
                     JOIN scores s ON r.id = s.repo_id
                     JOIN analysis_results a ON r.id = a.repo_id
                     LEFT JOIN telegram_messages t ON r.id = t.repo_id
-                    WHERE s.total_score >= ? AND t.id IS NULL
+                    WHERE s.total_score >= ? AND t.id IS NULL {age_filter}
                     ORDER BY s.total_score DESC
                     LIMIT ?
-                ''', (min_score, limit))
+                ''', (min_score, *age_params, limit))
             
             results = []
             for row in cursor.fetchall():

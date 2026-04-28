@@ -83,10 +83,17 @@ class Scorer:
         score_monetization = 0.0
         score_differentiation = 0.0
         
+        is_fallback = False
         if analysis:
+            is_fallback = getattr(analysis, 'is_fallback', False)
             score_copyability = self._calculate_copyability_score(analysis)
             score_monetization = self._calculate_monetization_score(analysis)
             score_differentiation = self._calculate_differentiation_score(analysis)
+            
+            if is_fallback:
+                score_copyability *= 0.5
+                score_monetization *= 0.5
+                score_differentiation *= 0.5
 
         total_score = (
             score_popularity * (self.weights.popularity / 25.0) +

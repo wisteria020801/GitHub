@@ -92,6 +92,7 @@ class AnalysisResult:
     differentiation_ideas: List[str] = None
     raw_llm_response: Optional[str] = None
     analyzed_at: Optional[datetime] = None
+    is_fallback: bool = False
 
     def __post_init__(self):
         if self.differentiation_ideas is None:
@@ -129,6 +130,7 @@ class AnalysisResult:
             differentiation_ideas=ideas,
             raw_llm_response=data.get('raw_llm_response'),
             analyzed_at=parse_date(data.get('analyzed_at')),
+            is_fallback=bool(data.get('is_fallback', 0)),
         )
 
 
