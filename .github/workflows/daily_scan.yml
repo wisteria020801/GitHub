@@ -47,6 +47,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_CHATGROUP_ID: ${{ secrets.TELEGRAM_CHATGROUP_ID }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          WORLDNEWS_BOT_TOKEN: ${{ secrets.WORLDNEWS_BOT_TOKEN }}
+          WORLDNEWS_CHAT_ID: ${{ secrets.WORLDNEWS_CHAT_ID }}
+          WORLDNEWS_CHATGROUP_ID: ${{ secrets.WORLDNEWS_CHATGROUP_ID }}
         run: |
           cat > .env << EOF
           TOKEN_GITHUB=${TOKEN_GITHUB}
@@ -59,6 +62,9 @@ jobs:
           SCAN_INTERVAL=240
           MIN_SCORE_TO_NOTIFY=70
           DEBUG=False
+          WORLDNEWS_BOT_TOKEN=${WORLDNEWS_BOT_TOKEN}
+          WORLDNEWS_CHAT_ID=${WORLDNEWS_CHAT_ID}
+          WORLDNEWS_CHATGROUP_ID=${WORLDNEWS_CHATGROUP_ID}
           EOF
       
       - name: Run scan

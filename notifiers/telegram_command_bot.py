@@ -9,6 +9,7 @@ from config import TelegramConfig
 from database.models import Repository, Score, AnalysisResult
 from database.db_manager import DatabaseManager
 from notifiers.telegram_notifier import TelegramNotifier
+from analyzers.trend_analyzer import TrendAnalyzer
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -26,6 +27,7 @@ class TelegramCommandBot:
         self.config = config
         self.db = db_manager
         self.notifier = TelegramNotifier(config)
+        self.trend_analyzer = TrendAnalyzer(db_manager)
         self.api_base = f"https://api.telegram.org/bot{config.bot_token}"
         self.last_update_id = 0
         self.running = False
@@ -100,6 +102,11 @@ class TelegramCommandBot:
                 command='/random',
                 description='随机推荐一个高分项目',
                 callback=self.handle_random
+            ),
+            'trend': CommandHandler(
+                command='/trend',
+                description='查看近期技术趋势分析',
+                callback=self.handle_trend
             ),
         }
     
@@ -459,6 +466,24 @@ class TelegramCommandBot:
         
         self.notifier.send_message("\n".join(lines), chat_id=chat_id)
     
+    def handle_trend(self, chat_id: str, text: str):
+        try:
+            parts = text.split()
+            days = 7
+            if len(parts) > 1:
+                try:
+                    days = int(parts[1])
+                    days = max(1, min(days, 30))
+                except ValueError:
+                    pass
+            
+            analysis = self.trend_analyzer.analyze_trends(days=days)
+            report = self.trend_analyzer.format_trend_report(analysis)
+            self.notifier.send_message(report, chat_id=chat_id)
+        except Exception as e:
+            logger.error(f"Error in handle_trend: {e}")
+            self.notifier.send_message("❌ 趋势分析失败，请稍后重试", chat_id=chat_id)
+    
     def _get_help_text(self) -> str:
         help_text = "🤖 *GitHub 趋势雷达 - 命令帮助*\n\n"
         help_text += "以下是可用的命令：\n\n"
@@ -477,6 +502,7 @@ class TelegramCommandBot:
         help_text += "/lang python - 查看Python项目\n"
         help_text += "/search ai - 搜索包含ai的项目\n"
         help_text += "/random - 随机推荐一个高分项目\n"
+        help_text += "/trend - 查看近期技术趋势分析\n"
         help_text += "/stats - 查看系统统计信息"
         
         return help_text

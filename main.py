@@ -13,8 +13,10 @@ from collectors.hn_collector import HackerNewsCollector
 from collectors.ph_collector import ProductHuntCollector
 from collectors.hf_collector import HuggingFaceCollector
 from collectors.multi_source import MultiSourceCollector, TrendingItem
+from collectors.burst_detector import BurstDetector, BurstEvent
 from analyzers.readme_parser import ReadmeParser
 from analyzers.llm_analyzer import LLMAnalyzer
+from analyzers.trend_analyzer import TrendAnalyzer
 from scorers.scorer import Scorer
 from notifiers.telegram_notifier import TelegramNotifier
 from notifiers.telegram_command_bot import TelegramCommandBot
@@ -42,6 +44,8 @@ class GitHubRadar:
         self.llm_analyzer = LLMAnalyzer(config.llm)
         self.scorer = Scorer()
         self.notifier = TelegramNotifier(config.telegram)
+        self.burst_detector = BurstDetector(config.github.token)
+        self.trend_analyzer = TrendAnalyzer(self.db)
         
         self.use_multi_source = use_multi_source
         if use_multi_source:
@@ -53,6 +57,17 @@ class GitHubRadar:
             self.hn_collector = HackerNewsCollector()
             self.ph_collector = ProductHuntCollector(api_token=ph_token)
             self.hf_collector = HuggingFaceCollector()
+        
+        self.worldnews_notifier = None
+        if config.worldnews_bot and config.worldnews_bot.enabled:
+            from config import TelegramConfig
+            wn_config = TelegramConfig(
+                bot_token=config.worldnews_bot.bot_token,
+                chat_id=config.worldnews_bot.chat_id,
+                channel_id=config.worldnews_bot.channel_id
+            )
+            self.worldnews_notifier = TelegramNotifier(wn_config)
+            logger.info("WorldNews bot notifier initialized")
         
         self.running = True
         self._setup_signal_handlers()
@@ -108,6 +123,12 @@ class GitHubRadar:
             
             logger.info("Step 5: Notifying top projects...")
             stats['notified'] = self._notify_top_projects()
+            
+            logger.info("Step 6: Burst detection...")
+            stats['burst_events'] = self._detect_and_notify_bursts()
+            
+            logger.info("Step 7: Trend analysis & WorldNews push...")
+            self._push_trend_to_worldnews()
             
         except Exception as e:
             logger.error(f"Error during scan: {e}")
@@ -548,6 +569,81 @@ class GitHubRadar:
         else:
             logger.error("Failed to send 'no new projects' notification!")
             return 0
+
+    def _detect_and_notify_bursts(self) -> int:
+        try:
+            events = self.burst_detector.detect_bursts()
+        except Exception as e:
+            logger.error(f"Burst detection failed: {e}")
+            return 0
+        
+        if not events:
+            logger.info("No burst events detected")
+            return 0
+        
+        significant_events = [e for e in events if e.growth_rate >= 100]
+        if not significant_events:
+            logger.info("No significant burst events (growth < 100%)")
+            return 0
+        
+        lines = ["🚨 *突发技术事件检测*\n"]
+        for event in significant_events[:5]:
+            growth_str = f"+{event.growth_rate:.0f}%"
+            lines.append(f"🔥 *{event.keyword}* — {growth_str}")
+            lines.append(f"   今日: {event.current_count} | 昨日: {event.previous_count}")
+            if event.sample_repos:
+                for repo in event.sample_repos[:3]:
+                    lines.append(f"   ↳ [{repo}](https://github.com/{repo})")
+            lines.append("")
+        
+        lines.append(f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        
+        text = "\n".join(lines)
+        msg_id = self.notifier.send_message(text, prefer_channel=True)
+        
+        if self.worldnews_notifier:
+            wn_msg_id = self.worldnews_notifier.send_message(text, prefer_channel=True)
+            if wn_msg_id:
+                logger.info("Burst event sent to WorldNews bot")
+        
+        if msg_id:
+            logger.info(f"Sent burst alert with {len(significant_events)} events")
+            return len(significant_events)
+        
+        return 0
+
+    def _push_trend_to_worldnews(self):
+        if not self.worldnews_notifier:
+            return
+        
+        try:
+            analysis = self.trend_analyzer.analyze_trends(days=7)
+            report = self.trend_analyzer.format_trend_report(analysis)
+            
+            msg_id = self.worldnews_notifier.send_message(report, prefer_channel=True)
+            if msg_id:
+                logger.info("Trend report sent to WorldNews bot")
+            
+            categories = analysis.get('categories', [])
+            if categories:
+                cat_report = self._format_category_detail(categories[:3])
+                self.worldnews_notifier.send_message(cat_report, prefer_channel=True)
+            
+        except Exception as e:
+            logger.error(f"Failed to push trend to WorldNews: {e}")
+
+    def _format_category_detail(self, categories: list) -> str:
+        lines = ["📊 *热门方向详细分析*\n"]
+        
+        for cat in categories:
+            lines.append(f"🏷 *{cat['category']}*")
+            lines.append(f"  项目数: {cat['count']} | 均分: {cat['avg_score']:.0f}")
+            for proj in cat.get('top_projects', [])[:3]:
+                score_str = f" ({proj['score']:.0f}分)" if proj.get('score') else ""
+                lines.append(f"  ↳ {proj['name']} ⭐{proj['stars']}{score_str}")
+            lines.append("")
+        
+        return "\n".join(lines)
 
 
 def main():

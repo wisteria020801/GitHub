@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict
 
 
 env_path = Path(__file__).parent / '.env'
@@ -25,6 +25,14 @@ class TelegramConfig:
     bot_token: str
     chat_id: str
     channel_id: Optional[str] = None
+
+
+@dataclass
+class WorldNewsBotConfig:
+    bot_token: str
+    chat_id: str
+    channel_id: Optional[str] = None
+    enabled: bool = False
 
 
 @dataclass
@@ -61,6 +69,7 @@ class Config:
     database: DatabaseConfig
     scoring: ScoringConfig
     system: SystemConfig
+    worldnews_bot: Optional[WorldNewsBotConfig] = None
 
     @classmethod
     def from_env(cls) -> 'Config':
@@ -86,6 +95,12 @@ class Config:
                 chat_id=telegram_chat_id,
                 channel_id=os.getenv('TELEGRAM_CHATGROUP_ID'),
             ),
+            worldnews_bot=WorldNewsBotConfig(
+                bot_token=os.getenv('WORLDNEWS_BOT_TOKEN', ''),
+                chat_id=os.getenv('WORLDNEWS_CHAT_ID', ''),
+                channel_id=os.getenv('WORLDNEWS_CHATGROUP_ID'),
+                enabled=bool(os.getenv('WORLDNEWS_BOT_TOKEN', '')),
+            ) if os.getenv('WORLDNEWS_BOT_TOKEN', '') else None,
             llm=LLMConfig(
                 api_key=google_api_key,
                 model=os.getenv('LLM_MODEL', os.getenv('model', 'gemini-2.0-flash')),
