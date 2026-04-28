@@ -6,6 +6,7 @@ from config import GitHubConfig
 from collectors.github_collector import GitHubCollector, Repository
 from collectors.hn_collector import HackerNewsCollector, HNStory
 from collectors.ph_collector import ProductHuntCollector, PHPost
+from collectors.hf_collector import HuggingFaceCollector, HFModel
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -35,6 +36,7 @@ class MultiSourceCollector:
         self.github = GitHubCollector(github_config)
         self.hn = HackerNewsCollector()
         self.ph = ProductHuntCollector(api_token=ph_api_token)
+        self.hf = HuggingFaceCollector()
     
     def collect_all(self, limit_per_source: int = 30) -> List[TrendingItem]:
         items = []
@@ -42,6 +44,7 @@ class MultiSourceCollector:
         items.extend(self.collect_github_trending(limit_per_source))
         items.extend(self.collect_hn_trending(limit_per_source))
         items.extend(self.collect_ph_trending(limit_per_source))
+        items.extend(self.collect_hf_trending(limit_per_source))
         
         items.sort(key=lambda x: x.score, reverse=True)
         logger.info(f"Collected {len(items)} trending items from all sources")
@@ -151,6 +154,34 @@ class MultiSourceCollector:
         
         return items
     
+    def collect_hf_trending(self, limit: int = 20) -> List[TrendingItem]:
+        items = []
+        try:
+            models = self.hf.get_trending_models(min_likes=50, limit=limit)
+            
+            for model in models:
+                github_repo = self.hf.extract_github_repo(model)
+                
+                items.append(TrendingItem(
+                    source='huggingface',
+                    title=model.model_id,
+                    description=model.description,
+                    url=model.url,
+                    score=model.likes,
+                    github_repo=github_repo,
+                    raw_data={
+                        'downloads': model.downloads,
+                        'tags': model.tags,
+                        'author': model.author,
+                    }
+                ))
+            
+            logger.info(f"Collected {len(items)} items from Hugging Face")
+        except Exception as e:
+            logger.error(f"Failed to collect from Hugging Face: {e}")
+        
+        return items
+    
     def get_github_repos_from_external(self) -> Dict[str, TrendingItem]:
         external_githubs = {}
         
@@ -161,6 +192,11 @@ class MultiSourceCollector:
         
         ph_items = self.collect_ph_trending(50)
         for item in ph_items:
+            if item.github_repo:
+                external_githubs[item.github_repo] = item
+        
+        hf_items = self.collect_hf_trending(30)
+        for item in hf_items:
             if item.github_repo:
                 external_githubs[item.github_repo] = item
         

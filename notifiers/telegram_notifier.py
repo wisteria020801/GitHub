@@ -46,11 +46,15 @@ class TelegramNotifier:
         
         if chat_id:
             chat_ids_to_try.append(chat_id)
-        elif prefer_channel and self.config.channel_id:
-            chat_ids_to_try.append(self.config.channel_id)
+        elif prefer_channel:
+            # 优先发送到群聊
+            if self.config.channel_id:
+                chat_ids_to_try.append(self.config.channel_id)
+            # 如果没有群聊配置，或者群聊发送失败，尝试私聊
             if self.config.chat_id:
                 chat_ids_to_try.append(self.config.chat_id)
         else:
+            # 正常模式：先尝试群聊，再尝试私聊
             if self.config.channel_id:
                 chat_ids_to_try.append(self.config.channel_id)
             if self.config.chat_id:

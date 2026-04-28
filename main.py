@@ -11,6 +11,7 @@ from database.db_manager import DatabaseManager
 from collectors.github_collector import GitHubCollector
 from collectors.hn_collector import HackerNewsCollector
 from collectors.ph_collector import ProductHuntCollector
+from collectors.hf_collector import HuggingFaceCollector
 from collectors.multi_source import MultiSourceCollector, TrendingItem
 from analyzers.readme_parser import ReadmeParser
 from analyzers.llm_analyzer import LLMAnalyzer
@@ -20,6 +21,17 @@ from notifiers.telegram_command_bot import TelegramCommandBot
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+HOT_TOPICS = [
+    'ai', 'llm', 'gpt', 'claude', 'openai', 'agent', 'mcp',
+    'cursor', 'copilot', 'code-assistant', 'coding-agent',
+    'rag', 'embedding', 'vector', 'diffusion', 'stable-diffusion',
+    'tts', 'stt', 'speech', 'vision', 'multimodal',
+    'fine-tuning', 'lora', 'quantization', 'onnx',
+    'langchain', 'llamaindex', 'autogpt', 'crewai',
+    'blockchain', 'defi', 'smart-contract',
+    'rust', 'zig', 'bun', 'deno',
+]
 
 
 class GitHubRadar:
@@ -40,11 +52,11 @@ class GitHubRadar:
             )
             self.hn_collector = HackerNewsCollector()
             self.ph_collector = ProductHuntCollector(api_token=ph_token)
+            self.hf_collector = HuggingFaceCollector()
         
         self.running = True
         self._setup_signal_handlers()
         
-        # Initialize Telegram command bot
         self.command_bot = TelegramCommandBot(config.telegram, self.db)
         self.command_bot.start()
 
@@ -73,7 +85,8 @@ class GitHubRadar:
             'sources': {
                 'github': 0,
                 'hackernews': 0,
-                'producthunt': 0
+                'producthunt': 0,
+                'huggingface': 0
             }
         }
         
@@ -138,6 +151,13 @@ class GitHubRadar:
                     logger.info("Hacker News API: OK")
             except Exception as e:
                 logger.warning(f"Hacker News API: FAILED ({e})")
+            
+            try:
+                hf_models = self.hf_collector.get_trending_models(limit=1)
+                if hf_models:
+                    logger.info("Hugging Face API: OK")
+            except Exception as e:
+                logger.warning(f"Hugging Face API: FAILED ({e})")
         
         logger.info("Connection tests completed")
 
@@ -146,8 +166,9 @@ class GitHubRadar:
         
         total_collected = 0
         new_count = 0
-        source_stats = {'github': 0, 'hackernews': 0, 'producthunt': 0}
+        source_stats = {'github': 0, 'hackernews': 0, 'producthunt': 0, 'huggingface': 0}
         
+        # 1. GitHub trending (7天内新建的)
         result = self.collector.search_trending_repositories(
             days=7,
             min_stars=50,
@@ -170,6 +191,17 @@ class GitHubRadar:
         source_stats['github'] = len(result.repositories)
         total_collected += len(result.repositories)
         
+        # 2. GitHub hot topics (热门关键词搜索)
+        hot_topic_count = self._collect_hot_topics()
+        source_stats['github'] += hot_topic_count
+        total_collected += hot_topic_count
+        
+        # 3. GitHub most starred recently (近期高星项目)
+        recent_popular_count = self._collect_recent_popular()
+        source_stats['github'] += recent_popular_count
+        total_collected += recent_popular_count
+        
+        # 4. External sources (HN, PH, HF)
         external_githubs = self.multi_collector.get_github_repos_from_external()
         
         for repo_name, item in external_githubs.items():
@@ -188,16 +220,116 @@ class GitHubRadar:
                             new_count += 1
                             self._save_star_snapshot(repo)
                     
-                    source_stats[item.source] += 1
+                    source_key = item.source if item.source in source_stats else 'hackernews'
+                    source_stats[source_key] += 1
                     total_collected += 1
             except Exception as e:
                 logger.warning(f"Failed to process external repo {repo_name}: {e}")
         
+        # 5. Hugging Face trending (non-GitHub)
+        hf_count = self._collect_huggingface_models()
+        source_stats['huggingface'] = hf_count
+        total_collected += hf_count
+        
         logger.info(f"Collected {total_collected} repos ({new_count} new) from all sources")
         logger.info(f"Source breakdown: GitHub={source_stats['github']}, "
-                   f"HN={source_stats['hackernews']}, PH={source_stats['producthunt']}")
+                   f"HN={source_stats['hackernews']}, PH={source_stats['producthunt']}, "
+                   f"HF={source_stats['huggingface']}")
         
         return total_collected, new_count, source_stats
+
+    def _collect_hot_topics(self) -> int:
+        logger.info("Collecting hot topic repositories...")
+        collected = 0
+        
+        import random
+        topics_to_search = random.sample(HOT_TOPICS, min(5, len(HOT_TOPICS)))
+        
+        for topic in topics_to_search:
+            try:
+                result = self.collector.search_trending_repositories(
+                    days=7,
+                    min_stars=100,
+                    max_results=10
+                )
+                for repo in result.repositories:
+                    existing = self.db.get_repository_by_github_id(repo.github_id)
+                    if not existing:
+                        repo_id = self.db.insert_repository(repo)
+                        if repo_id:
+                            repo.id = repo_id
+                            collected += 1
+                            self._save_star_snapshot(repo)
+            except Exception as e:
+                logger.warning(f"Failed to collect hot topic '{topic}': {e}")
+        
+        logger.info(f"Collected {collected} repos from hot topics")
+        return collected
+
+    def _collect_recent_popular(self) -> int:
+        logger.info("Collecting recent popular repositories...")
+        collected = 0
+        
+        try:
+            result = self.collector.search_by_activity(
+                days=3,
+                min_stars=500,
+                max_results=30
+            )
+            for repo in result.repositories:
+                existing = self.db.get_repository_by_github_id(repo.github_id)
+                if not existing:
+                    repo_id = self.db.insert_repository(repo)
+                    if repo_id:
+                        repo.id = repo_id
+                        collected += 1
+                        self._save_star_snapshot(repo)
+                else:
+                    self._save_star_snapshot(existing)
+        except Exception as e:
+            logger.warning(f"Failed to collect recent popular repos: {e}")
+        
+        logger.info(f"Collected {collected} recent popular repos")
+        return collected
+
+    def _collect_huggingface_models(self) -> int:
+        logger.info("Collecting Hugging Face trending models...")
+        collected = 0
+        
+        try:
+            models = self.hf_collector.get_trending_models(min_likes=100, limit=20)
+            for model in models:
+                github_repo = self.hf_collector.extract_github_repo(model)
+                if github_repo:
+                    try:
+                        repo = self.multi_collector.enrich_with_github_details(
+                            github_repo,
+                            TrendingItem(
+                                source='huggingface',
+                                title=model.model_id,
+                                description=model.description,
+                                url=model.url,
+                                score=model.likes,
+                                github_repo=github_repo
+                            )
+                        )
+                        if repo:
+                            existing = self.db.get_repository_by_github_id(repo.github_id)
+                            if not existing:
+                                repo_id = self.db.insert_repository(repo)
+                                if repo_id:
+                                    repo.id = repo_id
+                                    collected += 1
+                                    self._save_star_snapshot(repo)
+                    except Exception as e:
+                        logger.warning(f"Failed to process HF model {model.model_id}: {e}")
+                else:
+                    logger.info(f"HF model {model.model_id} has no GitHub link, skipping")
+        except Exception as e:
+            logger.error(f"Failed to collect from Hugging Face: {e}")
+        
+        logger.info(f"Collected {collected} repos from Hugging Face")
+        return collected
 
     def _collect_repositories(self) -> Tuple[int, int]:
         logger.info("Collecting repositories from GitHub...")
@@ -295,9 +427,9 @@ class GitHubRadar:
     def _notify_top_projects(self) -> int:
         logger.info("Notifying top projects...")
         
-        # 1. 首先尝试推送高分项目
+        # 1. 首先尝试推送高分项目 (>=60分)
         top_projects = self.db.get_top_scored_repositories(
-            min_score=config.scoring.min_score_to_notify,
+            min_score=60,
             limit=config.scoring.max_results_per_day
         )
         
@@ -325,7 +457,6 @@ class GitHubRadar:
         logger.info("No high-score projects, checking for fast-growing projects...")
         fast_growing_projects = self.db.get_fastest_growing_repositories(days=7, limit=5)
         
-        # 过滤掉已经通知过的项目
         notified_repo_ids = self.db.get_notified_repo_ids()
         unnotified_fast_growing = [
             (repo, growth, growth_rate) 
@@ -337,7 +468,6 @@ class GitHubRadar:
             logger.info(f"Found {len(unnotified_fast_growing)} unnotified fast growing projects")
             msg_ids = self.notifier.notify_fast_growing_projects(unnotified_fast_growing)
             
-            # 记录通知
             for repo, growth, growth_rate in unnotified_fast_growing:
                 for msg_id in msg_ids:
                     if msg_id:
