@@ -1,18 +1,9 @@
-name: GitHub Radar Daily Scan
+name: Burst Detection
 
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
-    inputs:
-      mode:
-        description: 'Run mode'
-        required: false
-        default: 'once'
-        type: choice
-        options:
-          - once
-          - test
 
 permissions:
   contents: read
@@ -21,7 +12,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  scan:
+  burst:
     runs-on: ubuntu-latest
     
     steps:
@@ -61,17 +52,5 @@ jobs:
           DEBUG=False
           EOF
       
-      - name: Run scan
-        run: |
-          if [ "${{ github.event.inputs.mode }}" == "test" ]; then
-            python main.py --test
-          else
-            python main.py --once
-          fi
-      
-      - name: Upload database artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: github-radar-db
-          path: github_radar.db
-          retention-days: 30
+      - name: Run burst detection
+        run: python main.py --burst

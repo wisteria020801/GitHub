@@ -58,17 +58,6 @@ class GitHubRadar:
             self.ph_collector = ProductHuntCollector(api_token=ph_token)
             self.hf_collector = HuggingFaceCollector()
         
-        self.worldnews_notifier = None
-        if config.worldnews_bot and config.worldnews_bot.enabled:
-            from config import TelegramConfig
-            wn_config = TelegramConfig(
-                bot_token=config.worldnews_bot.bot_token,
-                chat_id=config.worldnews_bot.chat_id,
-                channel_id=config.worldnews_bot.channel_id
-            )
-            self.worldnews_notifier = TelegramNotifier(wn_config)
-            logger.info("WorldNews bot notifier initialized")
-        
         self.running = True
         self._setup_signal_handlers()
         
@@ -126,9 +115,6 @@ class GitHubRadar:
             
             logger.info("Step 6: Burst detection...")
             stats['burst_events'] = self._detect_and_notify_bursts()
-            
-            logger.info("Step 7: Trend analysis & WorldNews push...")
-            self._push_trend_to_worldnews()
             
         except Exception as e:
             logger.error(f"Error during scan: {e}")
@@ -601,49 +587,73 @@ class GitHubRadar:
         text = "\n".join(lines)
         msg_id = self.notifier.send_message(text, prefer_channel=True)
         
-        if self.worldnews_notifier:
-            wn_msg_id = self.worldnews_notifier.send_message(text, prefer_channel=True)
-            if wn_msg_id:
-                logger.info("Burst event sent to WorldNews bot")
-        
         if msg_id:
             logger.info(f"Sent burst alert with {len(significant_events)} events")
             return len(significant_events)
         
         return 0
 
-    def _push_trend_to_worldnews(self):
-        if not self.worldnews_notifier:
-            return
-        
-        try:
-            analysis = self.trend_analyzer.analyze_trends(days=7)
-            report = self.trend_analyzer.format_trend_report(analysis)
-            
-            msg_id = self.worldnews_notifier.send_message(report, prefer_channel=True)
-            if msg_id:
-                logger.info("Trend report sent to WorldNews bot")
-            
-            categories = analysis.get('categories', [])
-            if categories:
-                cat_report = self._format_category_detail(categories[:3])
-                self.worldnews_notifier.send_message(cat_report, prefer_channel=True)
-            
-        except Exception as e:
-            logger.error(f"Failed to push trend to WorldNews: {e}")
 
-    def _format_category_detail(self, categories: list) -> str:
-        lines = ["📊 *热门方向详细分析*\n"]
+def run_burst_only():
+    logger.info("=" * 50)
+    logger.info(f"Burst detection mode at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    db = DatabaseManager(config.database.path)
+    notifier = TelegramNotifier(config.telegram)
+    burst_detector = BurstDetector(config.github.token)
+    
+    try:
+        events = burst_detector.detect_bursts()
+    except Exception as e:
+        logger.error(f"Burst detection failed: {e}")
+        return
+    
+    if not events:
+        logger.info("No burst events detected")
+        return
+    
+    significant_events = [e for e in events if e.growth_rate >= 80]
+    if not significant_events:
+        logger.info("No significant burst events")
+        return
+    
+    lines = ["🚨 *突发技术事件检测*\n"]
+    for event in significant_events[:5]:
+        growth_str = f"+{event.growth_rate:.0f}%"
+        lines.append(f"🔥 *{event.keyword}* — {growth_str}")
+        lines.append(f"   今日: {event.current_count} | 昨日: {event.previous_count}")
+        if event.sample_repos:
+            for repo in event.sample_repos[:3]:
+                lines.append(f"   ↳ [{repo}](https://github.com/{repo})")
+        lines.append("")
+    
+    lines.append(f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    
+    text = "\n".join(lines)
+    msg_id = notifier.send_message(text, prefer_channel=True)
+    
+    if msg_id:
+        logger.info(f"Sent burst alert with {len(significant_events)} events")
         
-        for cat in categories:
-            lines.append(f"🏷 *{cat['category']}*")
-            lines.append(f"  项目数: {cat['count']} | 均分: {cat['avg_score']:.0f}")
-            for proj in cat.get('top_projects', [])[:3]:
-                score_str = f" ({proj['score']:.0f}分)" if proj.get('score') else ""
-                lines.append(f"  ↳ {proj['name']} ⭐{proj['stars']}{score_str}")
-            lines.append("")
-        
-        return "\n".join(lines)
+        for event in significant_events[:3]:
+            for repo_name in event.sample_repos[:2]:
+                try:
+                    collector = GitHubCollector(config.github)
+                    url = f'{collector.config.api_base_url}/repos/{repo_name}'
+                    data = collector._make_request(url, {})
+                    if data:
+                        repo = collector._parse_repository(data)
+                        if repo and repo.stars >= 100:
+                            existing = db.get_repository_by_github_id(repo.github_id)
+                            if not existing:
+                                repo_id = db.insert_repository(repo)
+                                if repo_id:
+                                    repo.id = repo_id
+                                    logger.info(f"Burst: auto-collected {repo_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-collect burst repo {repo_name}: {e}")
+    else:
+        logger.warning("Failed to send burst alert")
 
 
 def main():
@@ -651,9 +661,14 @@ def main():
     
     parser = argparse.ArgumentParser(description='GitHub Radar - Trending Project Analyzer')
     parser.add_argument('--once', action='store_true', help='Run once and exit')
+    parser.add_argument('--burst', action='store_true', help='Burst detection only (lightweight)')
     parser.add_argument('--test', action='store_true', help='Test connections and exit')
     parser.add_argument('--single-source', action='store_true', help='Only use GitHub as source')
     args = parser.parse_args()
+    
+    if args.burst:
+        run_burst_only()
+        return
     
     use_multi_source = not args.single_source
     radar = GitHubRadar(use_multi_source=use_multi_source)
