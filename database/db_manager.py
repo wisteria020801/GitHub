@@ -52,7 +52,8 @@ class DatabaseManager:
                     readme_content TEXT,
                     readme_fetched_at DATETIME,
                     first_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    last_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    last_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    source TEXT DEFAULT 'github'
                 )
             ''')
 
@@ -125,6 +126,12 @@ class DatabaseManager:
         except sqlite3.OperationalError:
             cursor.execute("ALTER TABLE analysis_results ADD COLUMN is_fallback INTEGER DEFAULT 0")
             logger.info("Migration: added is_fallback column to analysis_results")
+        
+        try:
+            cursor.execute("SELECT source FROM repositories LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE repositories ADD COLUMN source TEXT DEFAULT 'github'")
+            logger.info("Migration: added source column to repositories")
 
     def insert_repository(self, repo: Repository) -> int:
         with self._get_connection() as conn:
