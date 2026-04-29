@@ -39,7 +39,7 @@ class WorldNewsBotConfig:
 class LLMConfig:
     provider: str = "google"
     api_key: str = ""
-    model: str = "gemini-2.0-flash"
+    model: str = "gemini-2.5-flash"
     max_tokens: int = 4096
     temperature: float = 0.7
 

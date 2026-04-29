@@ -88,8 +88,8 @@ class BurstDetector:
             else:
                 return None
             
-            threshold = 50.0
-            if recent_count >= 5 and growth_rate >= threshold:
+            threshold = 30.0
+            if recent_count >= 3 and growth_rate >= threshold:
                 sample_repos = self._get_sample_repos(topic, limit=3)
                 
                 return BurstEvent(
@@ -200,8 +200,8 @@ class BurstDetector:
                     events.append(BurstEvent(
                         keyword=f"HN: {topic}",
                         current_count=count,
-                        previous_count=0,
-                        growth_rate=999.0,
+                        previous_count=max(1, count - 1),
+                        growth_rate=100.0 * count,
                         sample_repos=keyword_repos.get(topic, [])[:3],
                         detected_at=datetime.now()
                     ))

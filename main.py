@@ -61,8 +61,7 @@ class GitHubRadar:
         self.running = True
         self._setup_signal_handlers()
         
-        self.command_bot = TelegramCommandBot(config.telegram, self.db)
-        self.command_bot.start()
+        self.command_bot = None
 
     def _setup_signal_handlers(self):
         def signal_handler(signum, frame):
@@ -129,6 +128,9 @@ class GitHubRadar:
         logger.info("Starting GitHub Radar in continuous mode")
         logger.info(f"Scan interval: {config.system.scan_interval_minutes} minutes")
         logger.info(f"Multi-source mode: {self.use_multi_source}")
+        
+        self.command_bot = TelegramCommandBot(config.telegram, self.db)
+        self.command_bot.start()
         
         self._test_connections()
         
@@ -570,9 +572,9 @@ class GitHubRadar:
             logger.info("No burst events detected")
             return 0
         
-        significant_events = [e for e in events if e.growth_rate >= 100]
+        significant_events = [e for e in events if e.growth_rate >= 50]
         if not significant_events:
-            logger.info("No significant burst events (growth < 100%)")
+            logger.info("No significant burst events (growth < 50%)")
             return 0
         
         lines = ["🚨 *突发技术事件检测*\n"]
@@ -615,7 +617,7 @@ def run_burst_only():
         logger.info("No burst events detected")
         return
     
-    significant_events = [e for e in events if e.growth_rate >= 80]
+    significant_events = [e for e in events if e.growth_rate >= 50]
     if not significant_events:
         logger.info("No significant burst events")
         return
@@ -638,17 +640,20 @@ def run_burst_only():
     if msg_id:
         logger.info(f"Sent burst alert (private) with {len(significant_events)} events")
         
+        collector = GitHubCollector(config.github)
         for event in significant_events[:3]:
             for repo_name in event.sample_repos[:2]:
                 try:
-                    collector = GitHubCollector(config.github)
                     url = f'{collector.config.api_base_url}/repos/{repo_name}'
                     data = collector._make_request(url, {})
                     if data:
                         repo = collector._parse_repository(data)
-                        if repo and repo.stars >= 100:
+                        if repo and repo.stars >= 50:
                             existing = db.get_repository_by_github_id(repo.github_id)
-                            if not existing:
+                            if existing:
+                                repo.id = existing.id
+                                db.update_repository(repo)
+                            else:
                                 repo_id = db.insert_repository(repo)
                                 if repo_id:
                                     repo.id = repo_id

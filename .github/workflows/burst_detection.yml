@@ -19,6 +19,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Download previous database
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          name: github-radar-db
+          path: .
+          if_no_artifact_found: ignore
+          workflow: daily_scan.yml
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -54,3 +63,10 @@ jobs:
       
       - name: Run burst detection
         run: python main.py --burst
+      
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-radar-db
+          path: github_radar.db
+          retention-days: 30
