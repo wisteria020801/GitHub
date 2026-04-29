@@ -544,14 +544,19 @@ class GitHubRadar:
             logger.info(f"Notified {len(msg_ids)} fast growing projects")
             return len(msg_ids)
         
-        # 3. 都没有，发送无新项目通知（确保一定会发送）
-        logger.info("No new projects to notify, sending status message...")
-        msg_id = self.notifier.notify_no_new_projects()
-        if msg_id:
-            logger.info("Sent 'no new projects' notification")
-            return 1
+        # 3. 只在每天第一次扫描(0-8点)发送"暂无新项目"通知，避免频繁打扰
+        current_hour = datetime.now().hour
+        if 0 <= current_hour < 8:
+            logger.info("No new projects, sending daily status message (morning report)...")
+            msg_id = self.notifier.notify_no_new_projects()
+            if msg_id:
+                logger.info("Sent 'no new projects' notification")
+                return 1
+            else:
+                logger.error("Failed to send 'no new projects' notification!")
+                return 0
         else:
-            logger.error("Failed to send 'no new projects' notification!")
+            logger.info("No new projects to notify, skipping (non-morning hours)")
             return 0
 
     def _detect_and_notify_bursts(self) -> int:
@@ -583,10 +588,10 @@ class GitHubRadar:
         lines.append(f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         
         text = "\n".join(lines)
-        msg_id = self.notifier.send_message(text, prefer_channel=True)
+        msg_id = self.notifier.send_message(text, private_only=True)
         
         if msg_id:
-            logger.info(f"Sent burst alert with {len(significant_events)} events")
+            logger.info(f"Sent burst alert (private) with {len(significant_events)} events")
             return len(significant_events)
         
         return 0
@@ -628,10 +633,10 @@ def run_burst_only():
     lines.append(f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     
     text = "\n".join(lines)
-    msg_id = notifier.send_message(text, prefer_channel=True)
+    msg_id = notifier.send_message(text, private_only=True)
     
     if msg_id:
-        logger.info(f"Sent burst alert with {len(significant_events)} events")
+        logger.info(f"Sent burst alert (private) with {len(significant_events)} events")
         
         for event in significant_events[:3]:
             for repo_name in event.sample_repos[:2]:

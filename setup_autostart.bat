@@ -1,16 +1,23 @@
 @echo off
 chcp 65001 >nul
+cd /d "%~dp0"
 
-set "VBS_PATH=%~dp0start_dashboard_silent.vbs"
-set "SHORTCUT_PATH=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\GitHubRadar.lnk"
+:: 创建开机自启任务计划
+schtasks /create /tn "GitHubRadar_Dashboard" /tr "python -m dashboard.app" /sc onlogon /rl limited /f >nul 2>&1
+schtasks /create /tn "GitHubRadar_OpenBrowser" /tr "cmd /c start http://127.0.0.1:5000" /sc onlogon /rl limited /delay 0000:05 /f >nul 2>&1
 
-powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%SHORTCUT_PATH%'); $s.TargetPath = '%VBS_PATH%'; $s.WorkingDirectory = '%~dp0'; $s.Description = 'GitHub Radar Dashboard'; $s.Save()"
+echo.
+echo ========================================
+echo   GitHub Radar Dashboard 开机自启设置
+echo ========================================
+echo.
+echo   已创建以下任务计划：
+echo   1. GitHubRadar_Dashboard - 登录后自动启动Dashboard
+echo   2. GitHubRadar_OpenBrowser - 登录5秒后自动打开浏览器
+echo.
+echo   现在启动 Dashboard...
+echo.
 
-if exist "%SHORTCUT_PATH%" (
-    echo SUCCESS: Autostart configured!
-    echo Shortcut: %SHORTCUT_PATH%
-) else (
-    echo FAILED: Please create shortcut manually
-)
-
-pause
+start "" python -m dashboard.app
+timeout /t 3 /nobreak >nul
+start http://127.0.0.1:5000
