@@ -136,21 +136,28 @@ class DatabaseManager:
     def insert_repository(self, repo: Repository) -> int:
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR IGNORE INTO repositories 
-                (github_id, full_name, name, description, html_url, language, topics, 
-                 stars, forks, open_issues, created_at, pushed_at, license_name, 
-                 readme_content, readme_fetched_at, first_seen_at, last_updated_at, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                repo.github_id, repo.full_name, repo.name, repo.description,
-                repo.html_url, repo.language, repo.topics_json, repo.stars,
-                repo.forks, repo.open_issues, repo.created_at, repo.pushed_at,
-                repo.license_name, repo.readme_content, repo.readme_fetched_at,
-                repo.first_seen_at or datetime.now(), repo.last_updated_at or datetime.now(),
-                repo.source
-            ))
-            return cursor.lastrowid
+            try:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO repositories 
+                    (github_id, full_name, name, description, html_url, language, topics, 
+                     stars, forks, open_issues, created_at, pushed_at, license_name, 
+                     readme_content, readme_fetched_at, first_seen_at, last_updated_at, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    repo.github_id, repo.full_name, repo.name, repo.description,
+                    repo.html_url, repo.language, repo.topics_json, repo.stars,
+                    repo.forks, repo.open_issues, repo.created_at, repo.pushed_at,
+                    repo.license_name, repo.readme_content, repo.readme_fetched_at,
+                    repo.first_seen_at or datetime.now(), repo.last_updated_at or datetime.now(),
+                    repo.source
+                ))
+                if cursor.lastrowid and cursor.lastrowid > 0:
+                    return cursor.lastrowid
+                existing = self.get_repository_by_github_id(repo.github_id)
+                return existing.id if existing else 0
+            except Exception as e:
+                logger.error(f"Failed to insert repository {repo.full_name}: {e}")
+                return 0
 
     def get_repository_by_github_id(self, github_id: int) -> Optional[Repository]:
         with self._get_connection() as conn:
@@ -475,14 +482,9 @@ class DatabaseManager:
             return results[:limit]
 
     def get_notified_repo_ids(self) -> List[int]:
-        """获取已通知的项目ID列表
-        
-        Returns:
-            已通知的项目ID列表
-        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT DISTINCT repo_id FROM telegram_messages WHERE status = "sent"')
+            cursor.execute('SELECT DISTINCT repo_id FROM telegram_messages WHERE status IN ("sent", "sent_summary")')
             return [row[0] for row in cursor.fetchall()]
 
     def get_repositories_by_source(self, source: str, limit: int = 10) -> List[Repository]:

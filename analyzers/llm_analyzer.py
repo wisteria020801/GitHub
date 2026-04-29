@@ -106,7 +106,7 @@ class LLMAnalyzer:
         self.config = config
         self.api_key = config.api_key
         self.model_name = config.model
-        self.model = self.MODEL_MAPPING.get(config.model, 'gemini-2.0-flash')
+        self.model = self.MODEL_MAPPING.get(config.model, 'gemini-2.5-flash')
         self.session = requests.Session()
         self._last_request_time = 0
         self._error_log: List[AnalysisError] = []

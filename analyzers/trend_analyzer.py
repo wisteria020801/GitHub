@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from collections import Counter
 
 from database.db_manager import DatabaseManager
@@ -37,6 +37,9 @@ class TrendAnalyzer:
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
     
+    def _get_connection(self):
+        return sqlite3.connect(self.db.db_path)
+    
     def analyze_trends(self, days: int = 7) -> Dict:
         logger.info(f"Analyzing trends for last {days} days...")
         
@@ -57,20 +60,30 @@ class TrendAnalyzer:
         }
     
     def _categorize_recent_projects(self, days: int) -> List[Dict]:
-        conn = sqlite3.connect(self.db.db_path)
+        conn = self._get_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         since = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
         
-        cursor.execute('''
-            SELECT r.full_name, r.description, r.topics, r.language, r.stars, r.source,
-                   s.total_score
-            FROM repositories r
-            LEFT JOIN scores s ON r.id = s.repo_id
-            WHERE r.first_seen_at >= ?
-            ORDER BY r.stars DESC
-        ''', (since,))
+        try:
+            cursor.execute('''
+                SELECT r.full_name, r.description, r.topics, r.language, r.stars, r.source,
+                       s.total_score
+                FROM repositories r
+                LEFT JOIN scores s ON r.id = s.repo_id
+                WHERE r.first_seen_at >= ?
+                ORDER BY r.stars DESC
+            ''', (since,))
+        except sqlite3.OperationalError:
+            cursor.execute('''
+                SELECT r.full_name, r.description, r.topics, r.language, r.stars,
+                       s.total_score
+                FROM repositories r
+                LEFT JOIN scores s ON r.id = s.repo_id
+                WHERE r.first_seen_at >= ?
+                ORDER BY r.stars DESC
+            ''', (since,))
         
         rows = cursor.fetchall()
         conn.close()
@@ -86,9 +99,10 @@ class TrendAnalyzer:
             }
         
         for row in rows:
-            text = f"{row['full_name']} {row['description'] or ''} {row['topics'] or ''}".lower()
-            stars = row['stars'] or 0
-            score = row['total_score'] or 0
+            row_dict = dict(row)
+            text = f"{row_dict.get('full_name', '')} {row_dict.get('description') or ''} {row_dict.get('topics') or ''}".lower()
+            stars = row_dict.get('stars', 0) or 0
+            score = row_dict.get('total_score', 0) or 0
             
             matched = False
             for cat_name, keywords in self.CATEGORY_KEYWORDS.items():
@@ -99,7 +113,7 @@ class TrendAnalyzer:
                     stats['scores'].append(score)
                     if len(stats['top_projects']) < 3:
                         stats['top_projects'].append({
-                            'name': row['full_name'],
+                            'name': row_dict.get('full_name', ''),
                             'stars': stars,
                             'score': score
                         })
@@ -115,7 +129,7 @@ class TrendAnalyzer:
                 stats['scores'].append(score)
                 if len(stats['top_projects']) < 3:
                     stats['top_projects'].append({
-                        'name': row['full_name'],
+                        'name': row_dict.get('full_name', ''),
                         'stars': stars,
                         'score': score
                     })
@@ -136,7 +150,7 @@ class TrendAnalyzer:
         return result
     
     def _get_hot_languages(self, days: int) -> List[Dict]:
-        conn = sqlite3.connect(self.db.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         since = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
@@ -162,7 +176,7 @@ class TrendAnalyzer:
         return result
     
     def _get_hot_topics(self, days: int) -> List[Dict]:
-        conn = sqlite3.connect(self.db.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         since = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
@@ -196,18 +210,25 @@ class TrendAnalyzer:
         return result
     
     def _get_source_distribution(self, days: int) -> List[Dict]:
-        conn = sqlite3.connect(self.db.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         since = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
         
-        cursor.execute('''
-            SELECT source, COUNT(*) as cnt
-            FROM repositories
-            WHERE first_seen_at >= ?
-            GROUP BY source
-            ORDER BY cnt DESC
-        ''', (since,))
+        try:
+            cursor.execute('''
+                SELECT source, COUNT(*) as cnt
+                FROM repositories
+                WHERE first_seen_at >= ?
+                GROUP BY source
+                ORDER BY cnt DESC
+            ''', (since,))
+        except sqlite3.OperationalError:
+            cursor.execute('''
+                SELECT 'github' as source, COUNT(*) as cnt
+                FROM repositories
+                WHERE first_seen_at >= ?
+            ''', (since,))
         
         result = []
         for row in cursor.fetchall():
@@ -220,7 +241,7 @@ class TrendAnalyzer:
         return result
     
     def _get_growth_leaders(self, days: int) -> List[Dict]:
-        conn = sqlite3.connect(self.db.db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         since = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')

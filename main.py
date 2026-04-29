@@ -534,14 +534,12 @@ class GitHubRadar:
             msg_ids = self.notifier.notify_fast_growing_projects(unnotified_fast_growing)
             
             for repo, growth, growth_rate in unnotified_fast_growing:
-                for msg_id in msg_ids:
-                    if msg_id:
-                        telegram_msg = TelegramMessage(
-                            repo_id=repo.id,
-                            message_id=msg_id,
-                            status='sent'
-                        )
-                        self.db.insert_telegram_message(telegram_msg)
+                telegram_msg = TelegramMessage(
+                    repo_id=repo.id,
+                    message_id=msg_ids[0] if msg_ids else 0,
+                    status='sent_summary'
+                )
+                self.db.insert_telegram_message(telegram_msg)
             
             logger.info(f"Notified {len(msg_ids)} fast growing projects")
             return len(msg_ids)

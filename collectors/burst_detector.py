@@ -52,15 +52,14 @@ class BurstDetector:
         events = []
         
         import random
-        topics = random.sample(self.TRENDING_TOPICS, min(10, len(self.TRENDING_TOPICS)))
+        topics = random.sample(self.TRENDING_TOPICS, min(15, len(self.TRENDING_TOPICS)))
         
         for topic in topics:
             event = self._check_topic_burst(topic)
             if event:
                 events.append(event)
-            time.sleep(1)
+            time.sleep(0.5)
         
-        # 2. 检测Hacker News上的突发讨论
         hn_events = self._check_hn_bursts()
         events.extend(hn_events)
         
